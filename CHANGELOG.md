@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v1.1.0
+
+- :tada: Add schema option
+- :bug: Fix string in ele coordinates
+
 ### v1.0.0
 
 - :tada: Initial Commit
