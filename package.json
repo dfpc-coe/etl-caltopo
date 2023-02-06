@@ -1,18 +1,27 @@
 {
-    "name": "coe-adsbx",
+    "name": "coe-caltopo",
     "type": "module",
     "prviate": true,
     "version": "1.0.0",
     "description": "",
     "main": "index.js",
     "scripts": {
-        "lint": "eslint *.js",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "lint": "eslint *.ts",
+        "build": "tsc --build",
+        "test": "exit 0"
     },
     "author": "Nick Ingalls <nick@ingalls.ca>",
     "license": "ISC",
     "devDependencies": {
+        "@types/jsonwebtoken": "^9.0.1",
+        "@typescript-eslint/eslint-plugin": "^5.59.0",
+        "@typescript-eslint/parser": "^5.59.0",
         "eslint": "^8.31.0",
-        "eslint-plugin-node": "^11.1.0"
+        "ts-node": "^10.9.1",
+        "typescript": "^5.0.4"
+    },
+    "dependencies": {
+        "@tak-ps/etl": "^2.0.1",
+        "@types/geojson": "^7946.0.10"
     }
 }
