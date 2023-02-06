@@ -62,6 +62,9 @@ export default class Task {
 
             const id = ac.r || ac.flight;
             const callsign = ac.flight || ac.r;
+            const coordinates = [ac.lon, ac.lat];
+            if (!isNaN(parseInt(ac.alt_baro))) coordinates.push(ac.alt_baro);
+
             const feat = {
                 id: id.trim(),
                 type: 'Feature',
@@ -72,7 +75,7 @@ export default class Task {
                 },
                 geometry: {
                     type: 'Point',
-                    coordinates: [ac.lon, ac.lat, ac.alt_baro]
+                    coordinates
                 }
             };
 
