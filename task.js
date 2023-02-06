@@ -13,8 +13,8 @@ try {
 
 export default class Task {
     constructor() {
-        this.token = process.env.COTRIP_TOKEN;
-        this.api = 'https://data.cotrip.org/';
+        this.token = process.env.ADSBX_TOKEN;
+        this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
 
         this.etl = {
             api: process.env.ETL_API,
@@ -22,51 +22,46 @@ export default class Task {
             token: process.env.ETL_TOKEN
         };
 
-        if (!this.token) throw new Error('No COTrip API Token Provided');
+        if (!this.token) throw new Error('No ADSBX API Token Provided');
         if (!this.etl.api) throw new Error('No ETL API URL Provided');
         if (!this.etl.layer) throw new Error('No ETL Layer Provided');
-        //if (!this.etl.token) throw new Error('No ETL Token Provided');
+        if (!this.etl.token) throw new Error('No ETL Token Provided');
     }
 
     async control() {
-        const incidents = [];
-        let batch = -1;
-        let res;
-        do {
-            console.log(`ok - fetching ${++batch} of incidents`);
-            const url = new URL('/api/v1/incidents', this.api);
-            url.searchParams.append('apiKey', this.token);
-            if (res) url.searchParams.append('offset', res.headers.get('next-offset'));
+        const url = new URL(this.api);
+        url.searchParams.append('apiKey', this.token);
 
-            res = await fetch(url);
-
-            incidents.push(...(await res.json()).features);
-        } while (res.headers.has('next-offset') && res.headers.get('next-offset') !== 'None');
-        console.log(`ok - fetched ${incidents.length} incidents`);
+        const res = await fetch(url, {
+            headers: {
+                'api-auth': this.token
+            }
+        });
 
         const features = [];
-        for (const feature of incidents.map((incident) => {
-            incident.id = incident.properties.id;
-            incident.properties.remarks = incident.properties.travelerInformationMessage;
-            incident.properties.callsign = incident.properties.type;
-            return incident;
-        })) {
-            if (feature.geometry.type.startsWith('Multi')) {
-                const feat = JSON.stringify(feature);
-                const type = feature.geometry.type.replace('Multi', '');
+        for (const ac of (await res.json()).ac) {
+            if (!ac.flight && !ac.r) continue;
 
-                let i = 0;
-                for (const coordinates of feature.geometry.coordinates) {
-                    const new_feat = JSON.parse(feat);
-                    new_feat.geometry = { type, coordinates };
-                    new_feat.id = new_feat.id + '-' + i;
-                    features.push(new_feat);
-                    ++i;
+            const id = ac.r || ac.flight;
+            const callsign = ac.flight || ac.r;
+            const feat = {
+                id: id.trim(),
+                type: 'Feature',
+                properties: {
+                    callsign: callsign.trim(),
+                    squak: ac.squak,
+                    emergency: ac.emergency
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: [ac.lon, ac.lat, ac.alt_baro]
                 }
-            } else {
-                features.push(feature);
-            }
-        };
+            };
+
+            features.push(feat);
+        }
+
+        console.log(`ok - fetched ${features.length} planes`);
 
         const fc = {
             type: 'FeatureCollection',
