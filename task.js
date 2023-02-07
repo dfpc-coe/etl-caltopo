@@ -111,7 +111,7 @@ export default class Task {
 
 export async function handler(event={}) {
     if (event.type === 'schema') {
-        return JSON.stringify(Task.schema());
+        return Task.schema();
     } else {
         const task = new Task();
         await task.control();

@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.1.1
+
+- :bug: Don't stringify schema output
+
 ### v1.1.0
 
 - :tada: Add schema option
