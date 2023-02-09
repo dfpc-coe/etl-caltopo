@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.2.0
+
+- :tada: Add the ability to limit returned features by a list of ids
+
 ### v1.1.1
 
 - :bug: Don't stringify schema output
