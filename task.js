@@ -14,6 +14,7 @@ try {
 export default class Task {
     constructor() {
         this.token = process.env.ADSBX_TOKEN;
+        this.includes = process.env.ADSBX_INCLUDES ? JSON.parse(process.env.ADSBX_INCLUDES) : [];
         this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
 
         this.etl = {
@@ -36,6 +37,14 @@ export default class Task {
                 'ADSBX_TOKEN': {
                     type: 'string',
                     description: 'API Token for ADSBExachange'
+                },
+                'ADSBX_INCLUDES': {
+                    type: 'array',
+                    description: 'Limit resultant features to a given list of ids',
+                    items: {
+                        type: 'string',
+                        hint: 'id'
+                    }
                 },
                 'DEBUG': {
                     type: 'boolean',
@@ -86,7 +95,9 @@ export default class Task {
 
         const fc = {
             type: 'FeatureCollection',
-            features: features
+            features: features.filter((feat) => {
+                return this.includes.includes(feat.id);
+            })
         };
 
         if (process.env.DEBUG) for (const feat of fc.features) console.error(JSON.stringify(feat));
@@ -109,7 +120,7 @@ export default class Task {
     }
 }
 
-export async function handler(event={}) {
+export async function handler(event = {}) {
     if (event.type === 'schema') {
         return Task.schema();
     } else {
