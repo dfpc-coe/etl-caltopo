@@ -4,24 +4,28 @@ on:
   push:
     tags:
       - '*'
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{github.event.pull_request.head.sha || github.sha}}
-
-      - name: Docker Build ETL
-        run: docker build -t etl .
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
-          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
-          aws-region: us-east-1
+          role-to-assume: arn:aws-us-gov:iam::${{secrets.AWS_ACCOUNT_ID}}:role/Github-ECR-Builder
+          role-session-name: GithubECRBuilder
+          aws-region: ${{secrets.AWS_REGION}}
+
+      - name: Docker Build ETL
+        run: docker build -t etl .
 
       - name: Get tag
         id: tag
@@ -32,7 +36,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Docker Tag ETL
-        run: docker tag etl ${{secrets.AWS_ACCOUNT_ID}}.dkr.ecr.us-east-1.amazonaws.com/coe-ecr-etl-tasks:${{github.event.repository.name}}-${{steps.tag.outputs.tag}}
+        run: docker tag etl ${{secrets.AWS_ACCOUNT_ID}}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/coe-ecr-etl-tasks:${{github.event.repository.name}}-${{steps.tag.outputs.tag}}
 
       - name: Docker Push ETL
-        run: docker push ${{secrets.AWS_ACCOUNT_ID}}.dkr.ecr.us-east-1.amazonaws.com/coe-ecr-etl-tasks:${{github.event.repository.name}}-${{steps.tag.outputs.tag}}
+        run: docker push ${{secrets.AWS_ACCOUNT_ID}}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/coe-ecr-etl-tasks:${{github.event.repository.name}}-${{steps.tag.outputs.tag}}
