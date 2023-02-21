@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.2.1
+
+- :rocket: Update to OIDC based ECR Creds
+
 ### v1.2.0
 
 - :tada: Add the ability to limit returned features by a list of ids
