@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.3.1
+
+- :bug: Fix lint
+
 ### v1.3.0
 
 - :rocket: More complex schema expectations
