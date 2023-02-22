@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.3.0
+
+- :rocket: More complex schema expectations
+
 ### v1.2.1
 
 - :rocket: Update to OIDC based ECR Creds
