@@ -83,7 +83,6 @@ export default class Task {
             if (!ac.flight && !ac.r) continue;
 
             const id = ac.r || ac.flight;
-            const callsign = ac.flight || ac.r;
             const coordinates = [ac.lon, ac.lat];
             if (!isNaN(parseInt(ac.alt_baro))) coordinates.push(ac.alt_baro);
 
