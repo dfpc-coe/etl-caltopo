@@ -42,8 +42,21 @@ export default class Task {
                     type: 'array',
                     description: 'Limit resultant features to a given list of ids',
                     items: {
-                        type: 'string',
-                        hint: 'id'
+                        type: 'object',
+                        properties: {
+                            agency: {
+                                type: 'string',
+                                description: 'Agency in control of the Aircraft'
+                            },
+                            callsign: {
+                                type: 'string',
+                                description: 'Callsign of the Aircraft'
+                            },
+                            registration: {
+                                type: 'string',
+                                description: 'Registration Number of the Aircraft'
+                            }
+                        }
                     }
                 },
                 'DEBUG': {
@@ -78,7 +91,8 @@ export default class Task {
                 id: id.trim(),
                 type: 'Feature',
                 properties: {
-                    callsign: callsign.trim(),
+                    registration: (ac.r || '').trim(),
+                    callsign: (ac.flight || '').trim(),
                     squak: ac.squak,
                     emergency: ac.emergency
                 },
@@ -96,7 +110,11 @@ export default class Task {
         const fc = {
             type: 'FeatureCollection',
             features: features.filter((feat) => {
-                return this.includes.includes(feat.id);
+                for (const include of this.includes) {
+                    if (feat.properties.callsign.toLowerCase() === include.callsign.toLowerCase()) return true;
+                    if (feat.properties.registration.toLowerCase() === include.registration.toLowerCase()) return true;
+                }
+                return false;
             })
         };
 
