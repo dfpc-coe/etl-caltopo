@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.3.2
+
+- :rocket: Add `display: table` to schema
+
 ### v1.3.1
 
 - :bug: Fix lint
