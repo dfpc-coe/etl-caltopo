@@ -40,6 +40,7 @@ export default class Task {
                 },
                 'ADSBX_INCLUDES': {
                     type: 'array',
+                    display: 'table',
                     description: 'Limit resultant features to a given list of ids',
                     items: {
                         type: 'object',
