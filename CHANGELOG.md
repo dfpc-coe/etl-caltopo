@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.4.0
+
+- :rocket: Add CoT Type
+
 ### v1.3.2
 
 - :rocket: Add `display: table` to schema
