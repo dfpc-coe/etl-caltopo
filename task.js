@@ -14,7 +14,9 @@ try {
 export default class Task {
     constructor() {
         this.token = process.env.ADSBX_TOKEN;
-        this.includes = process.env.ADSBX_INCLUDES ? JSON.parse(process.env.ADSBX_INCLUDES) : [];
+        this.includes = process.env.ADSBX_INCLUDES
+            ?  JSON.parse(process.env.ADSBX_INCLUDES)
+            : [];
         this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
 
         this.etl = {
@@ -56,7 +58,15 @@ export default class Task {
                             registration: {
                                 type: 'string',
                                 description: 'Registration Number of the Aircraft'
-                            }
+                            },
+                            type: {
+                                type: 'string',
+                                description: 'Type of Aircraft',
+                                enum: [
+                                    "HELICOPTER",
+                                    "FIXED WING"
+                                ]
+                            },
                         }
                     }
                 },
@@ -91,6 +101,7 @@ export default class Task {
                 id: id.trim(),
                 type: 'Feature',
                 properties: {
+                    type: 'a-f-A',
                     registration: (ac.r || '').trim(),
                     callsign: (ac.flight || '').trim(),
                     squak: ac.squak,
@@ -111,12 +122,21 @@ export default class Task {
             type: 'FeatureCollection',
             features: features.filter((feat) => {
                 for (const include of this.includes) {
-                    if (feat.properties.callsign.toLowerCase() === include.callsign.toLowerCase()) return true;
-                    if (feat.properties.registration.toLowerCase() === include.registration.toLowerCase()) return true;
+                    if (
+                        feat.properties.callsign.toLowerCase() === include.callsign.toLowerCase()
+                        || feat.properties.registration.toLowerCase() === include.registration.toLowerCase()
+                    ) {
+                        if (include.type === 'HELICOPTER') feat.properties.type = 'a-f-A-C-H';
+                        if (include.type === 'FIXED WING') feat.properties.type = 'a-f-A-C-F';
+
+                        return true;
+                    }
                 }
                 return false;
             })
         };
+
+        console.log(`ok - filtered to ${fc.features.length} planes`);
 
         if (process.env.DEBUG) for (const feat of fc.features) console.error(JSON.stringify(feat));
 
