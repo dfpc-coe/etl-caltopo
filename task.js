@@ -109,6 +109,17 @@ export default class Task extends ETL {
 
         console.log(`ok - fetched ${features.length} planes`);
 
+        const knownres = await fetch(new URL(`/api/layer/${this.etl.layer}/query`, this.etl.api), {
+            method: 'GET',
+            headers: {
+                Authorization: `bearer ${this.etl.token}`
+            }
+        });
+
+        const known = await knownres.json()
+
+        console.log(`ok - comparing against ${known.features.length} planes`);
+
         const fc = {
             type: 'FeatureCollection',
             features: features.filter((feat) => {
