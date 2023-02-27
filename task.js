@@ -1,4 +1,5 @@
 import fs from 'fs';
+import ETL from '@tak-ps/etl';
 
 try {
     const dotfile = new URL('.env', import.meta.url);
@@ -6,31 +7,11 @@ try {
     fs.accessSync(dotfile);
 
     Object.assign(process.env, JSON.parse(fs.readFileSync(dotfile)));
-    console.log('ok - .env file loaded');
 } catch (err) {
     console.log('ok - no .env file loaded');
 }
 
-export default class Task {
-    constructor() {
-        this.token = process.env.ADSBX_TOKEN;
-        this.includes = process.env.ADSBX_INCLUDES
-            ?  JSON.parse(process.env.ADSBX_INCLUDES)
-            : [];
-        this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
-
-        this.etl = {
-            api: process.env.ETL_API,
-            layer: process.env.ETL_LAYER,
-            token: process.env.ETL_TOKEN
-        };
-
-        if (!this.token) throw new Error('No ADSBX API Token Provided');
-        if (!this.etl.api) throw new Error('No ETL API URL Provided');
-        if (!this.etl.layer) throw new Error('No ETL Layer Provided');
-        if (!this.etl.token) throw new Error('No ETL Token Provided');
-    }
-
+export default class Task extends ETL {
     static schema() {
         return {
             type: 'object',
@@ -80,6 +61,16 @@ export default class Task {
     }
 
     async control() {
+        const layer = await this.layer();
+
+        if (!layer.data.environment.ADSBX_TOKEN) throw new Error('No ADSBX API Token Provided');
+        if (!layer.data.environment.ADSBX_INCLUDES) layer.data.environment.ADSBX_INCLUDES = '[]';
+
+        this.token = layer.data.environment.ADSBX_TOKEN;
+        this.includes = layer.data.environment.ADSBX_INCLUDES;
+
+        this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
+
         const url = new URL(this.api);
         url.searchParams.append('apiKey', this.token);
 
@@ -123,8 +114,8 @@ export default class Task {
             features: features.filter((feat) => {
                 for (const include of this.includes) {
                     if (
-                        feat.properties.callsign.toLowerCase() === include.callsign.toLowerCase()
-                        || feat.properties.registration.toLowerCase() === include.registration.toLowerCase()
+                        (include.callsign && feat.properties.callsign.toLowerCase() === include.callsign.toLowerCase())
+                        || (include.registration && feat.properties.registration.toLowerCase() === include.registration.toLowerCase())
                     ) {
                         if (include.type === 'HELICOPTER') feat.properties.type = 'a-f-A-C-H';
                         if (include.type === 'FIXED WING') feat.properties.type = 'a-f-A-C-F';
@@ -136,25 +127,7 @@ export default class Task {
             })
         };
 
-        console.log(`ok - filtered to ${fc.features.length} planes`);
-
-        if (process.env.DEBUG) for (const feat of fc.features) console.error(JSON.stringify(feat));
-
-        const post = await fetch(new URL(`/api/layer/${this.etl.layer}/cot`, this.etl.api), {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.etl.token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(fc)
-        });
-
-        if (!post.ok) {
-            console.error(await post.text());
-            throw new Error('Failed to post layer to ETL');
-        } else {
-            console.log(await post.json());
-        }
+        await this.submit(fc);
     }
 }
 

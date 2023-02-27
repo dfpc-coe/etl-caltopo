@@ -14,5 +14,8 @@
     "devDependencies": {
         "eslint": "^8.31.0",
         "eslint-plugin-node": "^11.1.0"
+    },
+    "dependencies": {
+        "@tak-ps/etl": "^1.0.1"
     }
 }
