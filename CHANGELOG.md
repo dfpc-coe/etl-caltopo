@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.5.0
+
+- :rocket: Migrate to ETL Base Library
+
 ### v1.4.0
 
 - :rocket: Add CoT Type
