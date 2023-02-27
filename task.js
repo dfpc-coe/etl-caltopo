@@ -44,10 +44,10 @@ export default class Task extends ETL {
                                 type: 'string',
                                 description: 'Type of Aircraft',
                                 enum: [
-                                    "HELICOPTER",
-                                    "FIXED WING"
+                                    'HELICOPTER',
+                                    'FIXED WING'
                                 ]
-                            },
+                            }
                         }
                     }
                 },
@@ -116,7 +116,7 @@ export default class Task extends ETL {
             }
         });
 
-        const known = await knownres.json()
+        const known = await knownres.json();
 
         console.log(`ok - comparing against ${known.features.length} planes`);
 
