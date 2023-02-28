@@ -69,7 +69,7 @@ export default class Task extends ETL {
         this.token = layer.data.environment.ADSBX_TOKEN;
         this.includes = layer.data.environment.ADSBX_INCLUDES;
 
-        this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
+        this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/40.14401/lon/-119.81204/dist/2650/';
 
         const url = new URL(this.api);
         url.searchParams.append('apiKey', this.token);
