@@ -28,6 +28,11 @@ export default class Task extends ETL {
                     items: {
                         type: 'object',
                         properties: {
+                            domain: {
+                                type: 'string',
+                                description: 'Public Safety domain of the Aircraft'
+                                enum: [ 'EMS', 'FIRE', 'LAW' ]
+                            },
                             agency: {
                                 type: 'string',
                                 description: 'Agency in control of the Aircraft'
@@ -44,10 +49,10 @@ export default class Task extends ETL {
                                 type: 'string',
                                 description: 'Type of Aircraft',
                                 enum: [
-                                    "HELICOPTER",
-                                    "FIXED WING"
+                                    'HELICOPTER',
+                                    'FIXED WING'
                                 ]
-                            },
+                            }
                         }
                     }
                 },
@@ -66,17 +71,16 @@ export default class Task extends ETL {
         if (!layer.data.environment.ADSBX_TOKEN) throw new Error('No ADSBX API Token Provided');
         if (!layer.data.environment.ADSBX_INCLUDES) layer.data.environment.ADSBX_INCLUDES = '[]';
 
-        this.token = layer.data.environment.ADSBX_TOKEN;
-        this.includes = layer.data.environment.ADSBX_INCLUDES;
+        const token = layer.data.environment.ADSBX_TOKEN;
+        const includes = layer.data.environment.ADSBX_INCLUDES;
+        const api = 'https://adsbexchange.com/api/aircraft/v2/lat/40.14401/lon/-119.81204/dist/2650/';
 
-        this.api = 'https://adsbexchange.com/api/aircraft/v2/lat/42.0875/lon/-110.5905/dist/800/';
-
-        const url = new URL(this.api);
-        url.searchParams.append('apiKey', this.token);
+        const url = new URL(api);
+        url.searchParams.append('apiKey', token);
 
         const res = await fetch(url, {
             headers: {
-                'api-auth': this.token
+                'api-auth': token
             }
         });
 
@@ -109,10 +113,21 @@ export default class Task extends ETL {
 
         console.log(`ok - fetched ${features.length} planes`);
 
+        const knownres = await fetch(new URL(`/api/layer/${this.etl.layer}/query`, this.etl.api), {
+            method: 'GET',
+            headers: {
+                Authorization: `bearer ${this.etl.token}`
+            }
+        });
+
+        const known = await knownres.json();
+
+        console.log(`ok - comparing against ${known.features.length} planes`);
+
         const fc = {
             type: 'FeatureCollection',
             features: features.filter((feat) => {
-                for (const include of this.includes) {
+                for (const include of includes) {
                     if (
                         (include.callsign && feat.properties.callsign.toLowerCase() === include.callsign.toLowerCase())
                         || (include.registration && feat.properties.registration.toLowerCase() === include.registration.toLowerCase())
