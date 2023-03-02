@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v1.9.0
+
+- :tada: Overwrite callsign with optional user provided callsign
+- :rocket: Move known aircraft check to after initial submission for performance gains
+
 ### v1.8.0
 
 - :tada: Add Icon Supoort

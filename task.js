@@ -116,19 +116,6 @@ export default class Task extends ETL {
         }
 
         console.log(`ok - fetched ${features.length} planes`);
-
-        const knownres = await fetch(new URL(`/api/layer/${this.etl.layer}/query`, this.etl.api), {
-            method: 'GET',
-            headers: {
-                Authorization: `bearer ${this.etl.token}`
-            }
-        });
-
-        const known = await knownres.json();
-
-        //TODO: Implement
-        console.log(`ok - comparing against ${known.features.length} planes`);
-
         const fc = {
             type: 'FeatureCollection',
             features: features.filter((feat) => {
@@ -139,6 +126,8 @@ export default class Task extends ETL {
                     ) {
                         if (include.type === 'HELICOPTER') feat.properties.type = 'a-f-A-C-H';
                         if (include.type === 'FIXED WING') feat.properties.type = 'a-f-A-C-F';
+
+                        if (include.callsign) feat.properties.callsign = include.callsign;
 
                         if (include.icon) {
                             feat.properties.icon = include.icon;
@@ -164,6 +153,19 @@ export default class Task extends ETL {
         };
 
         await this.submit(fc);
+
+        const knownres = await fetch(new URL(`/api/layer/${this.etl.layer}/query`, this.etl.api), {
+            method: 'GET',
+            headers: {
+                Authorization: `bearer ${this.etl.token}`
+            }
+        });
+
+        const known = await knownres.json();
+
+        //TODO: Implement
+        console.log(`ok - comparing against ${known.features.length} planes`);
+
     }
 }
 
