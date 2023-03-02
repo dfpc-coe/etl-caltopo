@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.7.0
+
+- :rocket: Add `domain` field to input values
+
 ### v1.6.0
 
 - :rocket: Significantly increased API Distance
