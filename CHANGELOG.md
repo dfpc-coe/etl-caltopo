@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.8.0
+
+- :tada: Add Icon Supoort
+
 ### v1.7.1
 
 - :bug: JSON Schema Syntax Fix
