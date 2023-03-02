@@ -52,6 +52,10 @@ export default class Task extends ETL {
                                     'HELICOPTER',
                                     'FIXED WING'
                                 ]
+                            },
+                            icon: {
+                                type: 'string',
+                                description: 'Optional TAK Custom Icon'
                             }
                         }
                     }
@@ -122,6 +126,7 @@ export default class Task extends ETL {
 
         const known = await knownres.json();
 
+        //TODO: Implement
         console.log(`ok - comparing against ${known.features.length} planes`);
 
         const fc = {
@@ -134,6 +139,22 @@ export default class Task extends ETL {
                     ) {
                         if (include.type === 'HELICOPTER') feat.properties.type = 'a-f-A-C-H';
                         if (include.type === 'FIXED WING') feat.properties.type = 'a-f-A-C-F';
+
+                        if (include.icon) {
+                            feat.properties.icon = include.icon;
+                        } else if (include.type === 'HELICOPTER' && include.domain === 'EMS') {
+                            feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/EMS_ROTOR.png'
+                        } else if (include.type === 'HELICOPTER' && include.domain === 'FIRE') {
+                            feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/FIRE_ROTOR.png'
+                        } else if (include.type === 'HELICOPTER' && include.domain === 'LAW') {
+                            feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/LE_ROTOR.png'
+                        } else if (include.type === 'FIXED WING' && include.domain === 'EMS') {
+                            feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/EMS_FIXED_WING.png'
+                        } else if (include.type === 'FIXED WING' && include.domain === 'FIRE') {
+                            feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/FIRE_AIR_ATTACK.png'
+                        } else if (include.type === 'FIXED WING' && include.domain === 'LAW') {
+                            feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/LE_FIXED_WING.png'
+                        }
 
                         return true;
                     }
