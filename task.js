@@ -30,8 +30,8 @@ export default class Task extends ETL {
                         properties: {
                             domain: {
                                 type: 'string',
-                                description: 'Public Safety domain of the Aircraft'
-                                enum: [ 'EMS', 'FIRE', 'LAW' ]
+                                description: 'Public Safety domain of the Aircraft',
+                                enum: ['EMS', 'FIRE', 'LAW']
                             },
                             agency: {
                                 type: 'string',

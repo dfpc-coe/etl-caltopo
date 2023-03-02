@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.7.1
+
+- :bug: JSON Schema Syntax Fix
+
 ### v1.7.0
 
 - :rocket: Add `domain` field to input values
