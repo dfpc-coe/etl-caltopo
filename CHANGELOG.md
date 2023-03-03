@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.10.0
+
+- :bug: Convert alt. to meters & swich to `geom` value to match up with HAE
+
 ### v1.9.0
 
 - :tada: Overwrite callsign with optional user provided callsign

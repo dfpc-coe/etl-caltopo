@@ -94,7 +94,9 @@ export default class Task extends ETL {
 
             const id = ac.r || ac.flight;
             const coordinates = [ac.lon, ac.lat];
-            if (!isNaN(parseInt(ac.alt_baro))) coordinates.push(ac.alt_baro);
+
+            // If alt. is present convert to meters
+            if (!isNaN(parseInt(ac.alt_geom))) coordinates.push(ac.alt_geom * 0.3048);
 
             const feat = {
                 id: id.trim(),
