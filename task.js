@@ -81,6 +81,7 @@ export default class Task extends ETL {
 
         const url = new URL(api);
         url.searchParams.append('apiKey', token);
+        url.searchParams.append('cacheBuster', +new Date());
 
         const res = await fetch(url, {
             headers: {
@@ -106,6 +107,8 @@ export default class Task extends ETL {
                     type: 'a-f-A',
                     registration: (ac.r || '').trim(),
                     callsign: (ac.flight || '').trim(),
+                    time: new Date(),
+                    start: new Date(),
                     squak: ac.squak,
                     emergency: ac.emergency
                 },
@@ -117,6 +120,7 @@ export default class Task extends ETL {
         }
 
         const features = [];
+        const features_ids = new Set();
         for (const include of includes) {
             const id = include.registration.toLowerCase().trim();
 
@@ -143,7 +147,12 @@ export default class Task extends ETL {
                     feat.properties.icon = '66f14976-4b62-4023-8edb-d8d2ebeaa336/Public Safety Air/LE_FIXED_WING.png'
                 }
 
-                features.push(feat);
+                if (feat.properties.callsign === 'FIREBIRD09-PPD') console.log(new Date(), feat.geometry.coordinates)
+
+                if (!features_ids.has(id)) {
+                    features_ids.add(id);
+                    features.push(feat);
+                }
             }
         }
 
@@ -166,7 +175,6 @@ export default class Task extends ETL {
 
         //TODO: Implement
         console.log(`ok - comparing against ${known.features.length} planes`);
-
     }
 }
 
