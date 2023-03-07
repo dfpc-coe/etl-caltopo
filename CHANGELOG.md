@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v1.11.0
+
+- :bug: Avoid submitting duplicates
+- :rocket: Avoid multiple iters of features array
+
 ### v1.10.0
 
 - :bug: Convert alt. to meters & swich to `geom` value to match up with HAE
