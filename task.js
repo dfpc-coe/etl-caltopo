@@ -110,7 +110,9 @@ export default class Task extends ETL {
                     time: new Date(),
                     start: new Date(),
                     squak: ac.squak,
-                    emergency: ac.emergency
+                    emergency: ac.emergency,
+                    speed: ac.gs * 0.514444 || 9999999.0,
+                    course: ac.track || 9999999.0
                 },
                 geometry: {
                     type: 'Point',
@@ -164,6 +166,7 @@ export default class Task extends ETL {
 
         await this.submit(fc);
 
+        /*
         const knownres = await fetch(new URL(`/api/layer/${this.etl.layer}/query`, this.etl.api), {
             method: 'GET',
             headers: {
@@ -175,6 +178,7 @@ export default class Task extends ETL {
 
         //TODO: Implement
         console.log(`ok - comparing against ${known.features.length} planes`);
+        */
     }
 }
 

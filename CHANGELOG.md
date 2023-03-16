@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.12.0
+
+- :tada: Add `course` and `speed` properties
+
 ### v1.11.0
 
 - :bug: Avoid submitting duplicates
