@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.1.0
+
+- :rocket: Add ESRI-Dump@2
+
 ### v1.0.0
 
 - :tada: Initial Commit
