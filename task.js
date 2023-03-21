@@ -34,20 +34,20 @@ export default class Task extends ETL {
     async control() {
         const layer = await this.layer();
 
-        if (!layer.data.environment.ARCGIS_URL) throw new Error('No ArcGIS_URL Provided');
+        if (!layer.environment.ARCGIS_URL) throw new Error('No ArcGIS_URL Provided');
 
-        const dumper = new ESRIDump(this.layer.environment.ARCGIS_URL);
+        const dumper = new EsriDump(layer.environment.ARCGIS_URL, {
+            approach: 'iter'
+        });
 
         dumper.fetch();
 
         return new Promise((resolve, reject) => {
             dumper
                 .on('feature', (feature) => {
-                    console.log(feature);
                 })
                 .on('error', reject)
                 .on('done', () => {
-                    console.error('done');
                 });
         });
     }

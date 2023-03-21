@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.1.1
+
+- :rocket: Move to new environment location
+
 ### v1.1.0
 
 - :rocket: Add ESRI-Dump@2
