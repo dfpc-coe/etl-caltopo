@@ -1,5 +1,7 @@
-import fs from 'fs';
+import fs from 'node:fs';
+import os from 'node:os';
 import ETL from '@tak-ps/etl';
+import path from 'node:path';
 import EsriDump from 'esri-dump';
 
 try {
@@ -22,6 +24,25 @@ export default class Task extends ETL {
                     type: 'string',
                     description: 'ArcGIS MapServer URL to pull data from'
                 },
+                'ARCGIS_HEADERS': {
+                    type: 'array',
+                    description: 'Headers to include in the request',
+                    items: {
+                        type: 'object',
+                        required: [
+                            'key',
+                            'value'
+                        ],
+                        properties: {
+                            key: {
+                                type: 'string'
+                            },
+                            value: {
+                                type: 'string'
+                            }
+                        }
+                    }
+                },
                 'DEBUG': {
                     type: 'boolean',
                     default: false,
@@ -42,14 +63,22 @@ export default class Task extends ETL {
 
         dumper.fetch();
 
-        return new Promise((resolve, reject) => {
-            dumper
-                .on('feature', (feature) => {
-                })
-                .on('error', reject)
-                .on('done', () => {
-                });
+        const fc = {
+            type: 'FeatureCollection',
+            features: []
+        };
+
+        await new Promise((resolve, reject) => {
+            dumper.on('feature', (feature) => {
+                fc.features.push(feature);
+            }).on('error', (err) => {
+                reject(err);
+            }).on('done', () => {
+                return resolve();
+            });
         });
+
+        await this.submit(fc);
     }
 }
 
