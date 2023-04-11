@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.2.0
+
+- :rocket: Write to CoT endpoint
+
 ### v1.1.1
 
 - :rocket: Move to new environment location
