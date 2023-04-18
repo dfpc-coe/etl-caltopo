@@ -43,6 +43,25 @@ export default class Task extends ETL {
                         }
                     }
                 },
+                'ARCGIS_PARAMS': {
+                    type: 'array',
+                    description: 'URL Params to include in the request',
+                    items: {
+                        type: 'object',
+                        required: [
+                            'key',
+                            'value'
+                        ],
+                        properties: {
+                            key: {
+                                type: 'string'
+                            },
+                            value: {
+                                type: 'string'
+                            }
+                        }
+                    }
+                },
                 'DEBUG': {
                     type: 'boolean',
                     default: false,
@@ -57,9 +76,25 @@ export default class Task extends ETL {
 
         if (!layer.environment.ARCGIS_URL) throw new Error('No ArcGIS_URL Provided');
 
-        const dumper = new EsriDump(layer.environment.ARCGIS_URL, {
-            approach: 'iter'
-        });
+        if (!layer.environment.ARCGIS_HEADERS) layer.environment.ARCGIS_HEADERS = [];
+        if (!layer.environment.ARCGIS_PARAMS) layer.environment.ARCGIS_PARAMS = [];
+
+        const config = {
+            approach: 'iter',
+            headers: {},
+            params: {}
+        };
+
+        for (const header of layer.environment.ARCGIS_HEADERS) {
+            if (!header.name.trim()) continue;
+            config.headers[header.name] = header.value || '';
+        }
+        for (const param of layer.environment.ARCGIS_PARAMS) {
+            if (!param.name.trim()) continue;
+            config.headers[param.name] = param.value || '';
+        }
+
+        const dumper = new EsriDump(layer.environment.ARCGIS_URL, config);
 
         dumper.fetch();
 
