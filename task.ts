@@ -1,15 +1,19 @@
 import fs from 'node:fs';
-import os from 'node:os';
-import ETL from '@tak-ps/etl';
-import path from 'node:path';
-import EsriDump from 'esri-dump';
+import { FeatureCollection } from 'geojson';
+import ETL, {
+    Event
+} from '@tak-ps/etl';
+import EsriDump, {
+    EsriDumpConfigInput,
+    EsriDumpConfigApproach
+} from 'esri-dump';
 
 try {
     const dotfile = new URL('.env', import.meta.url);
 
     fs.accessSync(dotfile);
 
-    Object.assign(process.env, JSON.parse(fs.readFileSync(dotfile)));
+    Object.assign(process.env, JSON.parse(String(fs.readFileSync(dotfile))));
 } catch (err) {
     console.log('ok - no .env file loaded');
 }
@@ -71,7 +75,7 @@ export default class Task extends ETL {
         };
     }
 
-    async control() {
+    async control(): Promise<void> {
         const layer = await this.layer();
 
         if (!layer.environment.ARCGIS_URL) throw new Error('No ArcGIS_URL Provided');
@@ -79,8 +83,8 @@ export default class Task extends ETL {
         if (!layer.environment.ARCGIS_HEADERS) layer.environment.ARCGIS_HEADERS = [];
         if (!layer.environment.ARCGIS_PARAMS) layer.environment.ARCGIS_PARAMS = [];
 
-        const config = {
-            approach: 'iter',
+        const config: EsriDumpConfigInput = {
+            approach: EsriDumpConfigApproach.ITER,
             headers: {},
             params: {}
         };
@@ -98,12 +102,12 @@ export default class Task extends ETL {
 
         dumper.fetch();
 
-        const fc = {
+        const fc: FeatureCollection = {
             type: 'FeatureCollection',
             features: []
         };
 
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             dumper.on('feature', (feature) => {
                 fc.features.push(feature);
             }).on('error', (err) => {
@@ -117,7 +121,7 @@ export default class Task extends ETL {
     }
 }
 
-export async function handler(event = {}) {
+export async function handler(event: Event = {}) {
     if (event.type === 'schema') {
         return Task.schema();
     } else {

@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.3.0
+
+- :tada: Pass HEADERS & PARAMS to ESRIDump
+
 ### v1.2.0
 
 - :rocket: Write to CoT endpoint
