@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v1.4.0
+
+- :rocket: Migrate to TypeScript
+- :tada: Fully support Headers & Params
+
 ### v1.3.0
 
 - :tada: Pass HEADERS & PARAMS to ESRIDump
