@@ -10,6 +10,6 @@
 
 ## Version History
 
-### v1.0.0
+### v1.5.0
 
 - :tada: Initial Commit
