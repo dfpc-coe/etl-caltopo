@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.5.2
+
+- :bug: Fix Schema Statement
+
 ### v1.5.1
 
 - :rocket: Add `CallSign` field and display as simple table
