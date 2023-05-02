@@ -1,5 +1,5 @@
 {
-    "name": "coe-arcgis",
+    "name": "coe-inreach",
     "type": "module",
     "prviate": true,
     "version": "1.4.0",
@@ -22,7 +22,6 @@
     },
     "dependencies": {
         "@tak-ps/etl": "^1.2.1",
-        "@types/geojson": "^7946.0.10",
-        "esri-dump": "^3.0.1"
+        "@types/geojson": "^7946.0.10"
     }
 }
