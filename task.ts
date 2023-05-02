@@ -50,7 +50,11 @@ export default class Task extends ETL {
     async control(): Promise<void> {
         const layer = await this.layer();
 
-        if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No ArcGIS_URL Provided');
+        if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
+
+        for (const share of layer.environment.INREACH_MAP_SHARES) {
+
+        }
 
         const fc: FeatureCollection = {
             type: 'FeatureCollection',
