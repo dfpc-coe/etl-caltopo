@@ -23,17 +23,24 @@ export default class Task extends ETL {
                 'INREACH_MAP_SHARES': {
                     type: 'array',
                     description: 'Inreach Share IDs to pull data from',
+                    display: 'table',
                     items: {
                         type: 'object',
                         required: [
                             'ShareID',
                         ],
                         properties: {
+                            CallSign: {
+                                type: 'string',
+                                description: 'Human Readable Name of the Operator - Used as the callsign in TAK'
+                            },
                             ShareId: {
-                                type: 'string'
+                                type: 'string',
+                                description: 'Garmin Inreach Share ID or URL'
                             },
                             Password: {
                                 type: 'string'
+                                description: 'Optional: Garmin Inreach MapShare Password'
                             }
                         }
                     }
