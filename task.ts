@@ -3,10 +3,6 @@ import { FeatureCollection } from 'geojson';
 import ETL, {
     Event
 } from '@tak-ps/etl';
-import EsriDump, {
-    EsriDumpConfigInput,
-    EsriDumpConfigApproach
-} from 'esri-dump';
 
 try {
     const dotfile = new URL('.env', import.meta.url);
@@ -22,45 +18,21 @@ export default class Task extends ETL {
     static schema() {
         return {
             type: 'object',
-            required: ['ARCGIS_URL'],
+            required: ['INREACH_MAP_SHARES'],
             properties: {
-                'ARCGIS_URL': {
-                    type: 'string',
-                    description: 'ArcGIS MapServer URL to pull data from'
-                },
-                'ARCGIS_HEADERS': {
+                'INREACH_MAP_SHARES': {
                     type: 'array',
-                    description: 'Headers to include in the request',
+                    description: 'Inreach Share IDs to pull data from',
                     items: {
                         type: 'object',
                         required: [
-                            'key',
-                            'value'
+                            'ShareID',
                         ],
                         properties: {
-                            key: {
+                            ShareId: {
                                 type: 'string'
                             },
-                            value: {
-                                type: 'string'
-                            }
-                        }
-                    }
-                },
-                'ARCGIS_PARAMS': {
-                    type: 'array',
-                    description: 'URL Params to include in the request',
-                    items: {
-                        type: 'object',
-                        required: [
-                            'key',
-                            'value'
-                        ],
-                        properties: {
-                            key: {
-                                type: 'string'
-                            },
-                            value: {
+                            Password: {
                                 type: 'string'
                             }
                         }
@@ -78,44 +50,12 @@ export default class Task extends ETL {
     async control(): Promise<void> {
         const layer = await this.layer();
 
-        if (!layer.environment.ARCGIS_URL) throw new Error('No ArcGIS_URL Provided');
-
-        if (!layer.environment.ARCGIS_HEADERS) layer.environment.ARCGIS_HEADERS = [];
-        if (!layer.environment.ARCGIS_PARAMS) layer.environment.ARCGIS_PARAMS = [];
-
-        const config: EsriDumpConfigInput = {
-            approach: EsriDumpConfigApproach.ITER,
-            headers: {},
-            params: {}
-        };
-
-        for (const header of layer.environment.ARCGIS_HEADERS) {
-            if (!header.name.trim()) continue;
-            config.headers[header.name] = header.value || '';
-        }
-        for (const param of layer.environment.ARCGIS_PARAMS) {
-            if (!param.name.trim()) continue;
-            config.headers[param.name] = param.value || '';
-        }
-
-        const dumper = new EsriDump(layer.environment.ARCGIS_URL, config);
-
-        dumper.fetch();
+        if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No ArcGIS_URL Provided');
 
         const fc: FeatureCollection = {
             type: 'FeatureCollection',
             features: []
-        };
-
-        await new Promise<void>((resolve, reject) => {
-            dumper.on('feature', (feature) => {
-                fc.features.push(feature);
-            }).on('error', (err) => {
-                reject(err);
-            }).on('done', () => {
-                return resolve();
-            });
-        });
+        }
 
         await this.submit(fc);
     }
