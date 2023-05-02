@@ -39,7 +39,7 @@ export default class Task extends ETL {
                                 description: 'Garmin Inreach Share ID or URL'
                             },
                             Password: {
-                                type: 'string'
+                                type: 'string',
                                 description: 'Optional: Garmin Inreach MapShare Password'
                             }
                         }
