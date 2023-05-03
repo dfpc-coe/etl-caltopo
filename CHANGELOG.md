@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.6.0
+
+- :tada: Parse XML Document
+
 ### v1.5.2
 
 - :bug: Fix Schema Statement
