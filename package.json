@@ -14,6 +14,7 @@
     "license": "ISC",
     "devDependencies": {
         "@types/jsonwebtoken": "^9.0.1",
+        "@types/xml2js": "^0.4.11",
         "@typescript-eslint/eslint-plugin": "^5.59.0",
         "@typescript-eslint/parser": "^5.59.0",
         "eslint": "^8.31.0",
@@ -22,6 +23,10 @@
     },
     "dependencies": {
         "@tak-ps/etl": "^1.2.1",
-        "@types/geojson": "^7946.0.10"
+        "@tmcw/togeojson": "^5.6.0",
+        "@types/geojson": "^7946.0.10",
+        "@xmldom/xmldom": "^0.8.7",
+        "moment": "^2.29.4",
+        "xml2js": "^0.5.0"
     }
 }
