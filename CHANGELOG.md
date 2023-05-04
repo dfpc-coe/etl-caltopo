@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v1.6.1
+
+- :rocket: Add increased logging
+
 ### v1.6.0
 
 - :tada: Parse XML Document
