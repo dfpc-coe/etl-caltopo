@@ -81,6 +81,7 @@ export default class Task extends ETL {
                 }
 
                 if (!share.CallSign) share.CallSign = share.ShareId;
+                console.log(`ok - requesting ${share.ShareId}`);
 
                 const url = new URL(`/feed/Share/${share.ShareId}`, 'https://explore.garmin.com')
                 url.searchParams.append('d1', moment().subtract(30, 'minutes').utc().format());
@@ -97,6 +98,7 @@ export default class Task extends ETL {
                 if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
                 if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
 
+                console.log(`ok - ${share.ShareId} has ${xml.kml.Document[0].Folder[0].Placemark.length} locations`);
                 for (const placemark of xml.kml.Document[0].Folder[0].Placemark) {
                     if (!placemark.Point || !placemark.Point[0]) break;
 
