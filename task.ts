@@ -2,9 +2,8 @@ import fs from 'node:fs';
 import moment from 'moment';
 import { FeatureCollection, Feature, Geometry } from 'geojson';
 import xml2js from 'xml2js';
-import ETL, {
-    Event
-} from '@tak-ps/etl';
+import { JSONSchema6 } from 'json-schema';
+import ETL, { Event, SchemaType } from '@tak-ps/etl';
 
 try {
     const dotfile = new URL('.env', import.meta.url);
@@ -23,49 +22,59 @@ export interface Share {
 }
 
 export default class Task extends ETL {
-    static schema() {
-        return {
-            type: 'object',
-            required: ['INREACH_MAP_SHARES'],
-            properties: {
-                'INREACH_MAP_SHARES': {
-                    type: 'array',
-                    description: 'Inreach Share IDs to pull data from',
-                    display: 'table',
-                    items: {
-                        type: 'object',
-                        required: [
-                            'ShareID',
-                        ],
-                        properties: {
-                            CallSign: {
-                                type: 'string',
-                                description: 'Human Readable Name of the Operator - Used as the callsign in TAK'
-                            },
-                            ShareId: {
-                                type: 'string',
-                                description: 'Garmin Inreach Share ID or URL'
-                            },
-                            Password: {
-                                type: 'string',
-                                description: 'Optional: Garmin Inreach MapShare Password'
+    static async schema(type: SchemaType = SchemaType.Input): Promise<JSONSchema6> {
+        if (type === SchemaType.Input) {
+            return {
+                type: 'object',
+                required: ['INREACH_MAP_SHARES'],
+                properties: {
+                    'INREACH_MAP_SHARES': {
+                        type: 'array',
+                        description: 'Inreach Share IDs to pull data from',
+                        // @ts-ignore
+                        display: 'table',
+                        items: {
+                            type: 'object',
+                            required: [
+                                'ShareID',
+                            ],
+                            properties: {
+                                CallSign: {
+                                    type: 'string',
+                                    description: 'Human Readable Name of the Operator - Used as the callsign in TAK'
+                                },
+                                ShareId: {
+                                    type: 'string',
+                                    description: 'Garmin Inreach Share ID or URL'
+                                },
+                                Password: {
+                                    type: 'string',
+                                    description: 'Optional: Garmin Inreach MapShare Password'
+                                }
                             }
                         }
+                    },
+                    'DEBUG': {
+                        type: 'boolean',
+                        default: false,
+                        description: 'Print ADSBX results in logs'
                     }
-                },
-                'DEBUG': {
-                    type: 'boolean',
-                    default: false,
-                    description: 'Print ADSBX results in logs'
                 }
             }
-        };
+        } else {
+            return {
+                type: 'object',
+                required: [],
+                properties: {}
+            }
+        }
     }
 
     async control(): Promise<void> {
         const layer = await this.layer();
 
         if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
+        if (!Array.isArray(layer.environment.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
 
         const obtains: Array<Promise<Feature[]>> = [];
         for (const share of layer.environment.INREACH_MAP_SHARES) {
@@ -89,12 +98,12 @@ export default class Task extends ETL {
                 const kmlres = await fetch(url);
                 const body = await kmlres.text();
 
-                const featuresmap: Map<String, Feature> = new Map();
+                const featuresmap: Map<string, Feature> = new Map();
                 const features: Feature[] = [];
 
                 if (!body.trim()) return features;
 
-                let xml = await xml2js.parseStringPromise(body);
+                const xml = await xml2js.parseStringPromise(body);
                 if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
                 if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
 
@@ -145,15 +154,17 @@ export default class Task extends ETL {
         for (const res of await Promise.all(obtains)) {
             if (!res || !res.length) continue;
             fc.features.push(...res);
-        };
+        }
 
         await this.submit(fc);
     }
 }
 
 export async function handler(event: Event = {}) {
-    if (event.type === 'schema') {
-        return Task.schema();
+    if (event.type === 'schema:input') {
+        return await Task.schema(SchemaType.Input);
+    } else if (event.type === 'schema:output') {
+        return await Task.schema(SchemaType.Output);
     } else {
         const task = new Task();
         await task.control();
