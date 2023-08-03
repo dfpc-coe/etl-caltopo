@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.0.0
+
+- :rocket: Update to ETL@2
+
 ### v1.6.1
 
 - :rocket: Add increased logging
