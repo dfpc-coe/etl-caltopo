@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { FeatureCollection, Feature, Geometry } from 'geojson';
+import { FeatureCollection, Feature } from 'geojson';
 import { JSONSchema6 } from 'json-schema';
 import ETL, { Event, SchemaType } from '@tak-ps/etl';
 
@@ -69,6 +69,7 @@ export default class Task extends ETL {
         if (!layer.environment.CALTOPO_SHARE_IDS) throw new Error('No CALTOPO_SHARE_IDS Provided');
         if (!Array.isArray(layer.environment.CALTOPO_SHARE_IDS)) throw new Error('CALTOPO_SHARE_IDS must be an array');
 
+        const features: Feature[] = [];
         const obtains: Array<Promise<Feature[]>> = [];
         for (const share of layer.environment.CALTOPO_SHARE_IDS) {
             obtains.push((async (share: Share): Promise<Feature[]> => {
