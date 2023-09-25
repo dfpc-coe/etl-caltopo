@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.0.1
+
+- :rocket: Fix Tagging
+
 ### v1.0.0
 
 - :rocket: Initial Approach
