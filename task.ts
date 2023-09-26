@@ -26,6 +26,8 @@ export default class Task extends ETL {
                 properties: {
                     'CALTOPO_SHARE_IDS': {
                         type: 'array',
+                        // @ts-ignore
+                        display: 'table',
                         items: {
                             type: 'object',
                             required: ['ShareId'],
