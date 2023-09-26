@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v2.1.0
+
+- :rocket: Improved display in ETL
+- :tada: Add Human Readable Name Field
+
 ### v2.0.1
 
 - :rocket: Fix Tagging

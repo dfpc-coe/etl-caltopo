@@ -32,10 +32,14 @@ export default class Task extends ETL {
                             type: 'object',
                             required: ['ShareId'],
                             properties: {
+                                Name: {
+                                    type: 'string',
+                                    description: 'Human Readable name of the CalTopo Map'
+                                },
                                 ShareId: {
                                     type: 'string',
                                     description: 'CalTopo Share ID'
-                                }
+                                },
                             }
                         }
                     },
