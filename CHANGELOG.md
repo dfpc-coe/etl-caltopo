@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.1.1
+
+- :bug: Fix path in which features are extracted
+
 ### v2.1.0
 
 - :rocket: Improved display in ETL
