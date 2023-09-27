@@ -86,7 +86,9 @@ export default class Task extends ETL {
                 const res = await fetch(url);
                 const body = await res.json();
 
-                features.push(...body.state.features)
+                if (body.result && body.result.state && body.result.state.features) {
+                    features.push(...body.result.state.features)
+                }
 
                 return features;
             })(share))
