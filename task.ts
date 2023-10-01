@@ -90,7 +90,15 @@ export default class Task extends ETL {
                     features.push(...body.result.state.features)
                 }
 
-                return features;
+                return features.map((feat) => {
+                    if (feat.geometry.type === 'Point') {
+                        // CalTopo returns points with 4 coords
+                        feat.geometry.coordinates.splice(3)
+                        return feat;
+                    } else {
+                        return feat;
+                    }
+                });
             })(share))
         }
 
