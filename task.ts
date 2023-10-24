@@ -91,6 +91,8 @@ export default class Task extends ETL {
                 }
 
                 return features.map((feat) => {
+                    // SARTopo will send "features" like "Operational Periods" which do not have geometry
+                    if (!feat.geometry) return;
                     if (feat.geometry.type === 'Point') {
                         // CalTopo returns points with 4 coords
                         feat.geometry.coordinates.splice(3)

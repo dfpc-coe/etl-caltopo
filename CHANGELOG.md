@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.2.0
+
+- :bug: Fix SARTopo non-geometry features
+
 ### v2.1.2
 
 - :bug: Fix Point Generation
