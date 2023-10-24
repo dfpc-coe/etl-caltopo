@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.3.0
+
+- :rocket: Set callsign and remarks to better defaults
+
 ### v2.2.1
 
 - :bug: Filter without undefines in feature array

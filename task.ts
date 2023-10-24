@@ -96,14 +96,17 @@ export default class Task extends ETL {
                         return !!feat.geometry;
                     })
                     .map((feat) => {
-                    if (feat.geometry.type === 'Point') {
-                        // CalTopo returns points with 4 coords
-                        feat.geometry.coordinates.splice(3)
-                        return feat;
-                    } else {
-                        return feat;
-                    }
-                });
+                        feat.properties.callsign = feat.properties.title;
+                        feat.properties.remarks = feat.properties.description;
+
+                        if (feat.geometry.type === 'Point') {
+                            // CalTopo returns points with 4 coords
+                            feat.geometry.coordinates.splice(3)
+                            return feat;
+                        } else {
+                            return feat;
+                        }
+                    });
             })(share))
         }
 
