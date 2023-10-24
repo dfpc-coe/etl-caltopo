@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.2.1
+
+- :bug: Filter without undefines in feature array
+
 ### v2.2.0
 
 - :bug: Fix SARTopo non-geometry features
