@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.3.1
+
+- :bug: Use coordsEach to ensure all coords are max 3 elements
+
 ### v2.3.0
 
 - :rocket: Set callsign and remarks to better defaults
