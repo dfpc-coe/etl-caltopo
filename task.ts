@@ -1,7 +1,8 @@
 import fs from 'node:fs';
-import { FeatureCollection, Feature } from 'geojson';
+import { FeatureCollection, Feature, Geometry } from 'geojson';
 import { JSONSchema6 } from 'json-schema';
 import ETL, { Event, SchemaType } from '@tak-ps/etl';
+import { coordEach } from '@turf/meta';
 
 try {
     const dotfile = new URL('.env', import.meta.url);
@@ -98,14 +99,14 @@ export default class Task extends ETL {
                     .map((feat) => {
                         feat.properties.callsign = feat.properties.title;
                         feat.properties.remarks = feat.properties.description;
+    
+                        // CalTopo returns points with 4+ coords
+                        // @ts-ignore
+                        coordEach(feat.geometry, (coord) => {
+                            return coord.splice(3)
+                        });
 
-                        if (feat.geometry.type === 'Point') {
-                            // CalTopo returns points with 4 coords
-                            feat.geometry.coordinates.splice(3)
-                            return feat;
-                        } else {
-                            return feat;
-                        }
+                        return feat;
                     });
             })(share))
         }
