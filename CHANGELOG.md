@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.0.0
+
+- :rocket: Update to latest token strategy
+
 ### v2.3.1
 
 - :bug: Use coordsEach to ensure all coords are max 3 elements
