@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.1.0
+
+- :rocket: Update to latest ETL Base & use new default fns
+
 ### v3.0.0
 
 - :rocket: Update to latest token strategy

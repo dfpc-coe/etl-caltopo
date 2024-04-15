@@ -1,77 +1,42 @@
 import fs from 'node:fs';
+import { Type, TSchema } from '@sinclair/typebox';
 import { FeatureCollection, Feature, Geometry } from 'geojson';
-import { JSONSchema6 } from 'json-schema';
-import ETL, { Event, SchemaType } from '@tak-ps/etl';
+import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
-
-try {
-    const dotfile = new URL('.env', import.meta.url);
-
-    fs.accessSync(dotfile);
-
-    Object.assign(process.env, JSON.parse(String(fs.readFileSync(dotfile))));
-} catch (err) {
-    console.log('ok - no .env file loaded');
-}
 
 export interface Share {
     ShareId: string;
 }
 
 export default class Task extends ETL {
-    static async schema(type: SchemaType = SchemaType.Input): Promise<JSONSchema6> {
+    static async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
-            return {
-                type: 'object',
-                required: ['CALTOPO_SHARE_IDS'],
-                properties: {
-                    'CALTOPO_SHARE_IDS': {
-                        type: 'array',
-                        // @ts-ignore
-                        display: 'table',
-                        items: {
-                            type: 'object',
-                            required: ['ShareId'],
-                            properties: {
-                                Name: {
-                                    type: 'string',
-                                    description: 'Human Readable name of the CalTopo Map'
-                                },
-                                ShareId: {
-                                    type: 'string',
-                                    description: 'CalTopo Share ID'
-                                },
-                            }
-                        }
-                    },
-                    'DEBUG': {
-                        type: 'boolean',
-                        default: false,
-                        description: 'Print ADSBX results in logs'
-                    }
-                }
-            }
+            return Type.Object({
+                'CALTOPO_SHARE_IDS': Type.Array(Type.Object({
+                    Name: Type.String({
+                        description: 'Human Readable name of the CalTopo Map',
+                        default: ''
+                    }),
+                    ShareId: Type.String({
+                        description: 'CalTopo Share ID'
+                    }),
+                })),
+                'DEBUG': Type.Boolean({
+                    default: false,
+                    description: 'Print results in logs'
+                })
+            });
         } else {
-            return {
-                type: 'object',
-                required: [],
-                properties: {
-                    title: {
-                        type: 'string'
-                    },
-                    class: {
-                        type: 'string'
-                    },
-                    creator: {
-                        type: 'string'
-                    }
-                }
-            }
+            return Type.Object({
+                title: Type.String(),
+                class: Type.String(),
+                creator: Type.String()
+            });
         }
     }
 
     async control(): Promise<void> {
-        const layer = await this.layer();
+        const layer = await this.fetchLayer();
 
         if (!layer.environment.CALTOPO_SHARE_IDS) throw new Error('No CALTOPO_SHARE_IDS Provided');
         if (!Array.isArray(layer.environment.CALTOPO_SHARE_IDS)) throw new Error('CALTOPO_SHARE_IDS must be an array');
@@ -97,9 +62,13 @@ export default class Task extends ETL {
                         return !!feat.geometry;
                     })
                     .map((feat) => {
-                        feat.properties.callsign = feat.properties.title;
-                        feat.properties.remarks = feat.properties.description;
-    
+                        feat.properties = {
+                            metadata: feat.properties
+                        };
+
+                        feat.properties.callsign = feat.properties.metadata.title;
+                        feat.properties.remarks = feat.properties.metadata.description;
+
                         // CalTopo returns points with 4+ coords
                         // @ts-ignore
                         coordEach(feat.geometry, (coord) => {
@@ -125,15 +94,9 @@ export default class Task extends ETL {
     }
 }
 
+env(import.meta.url)
+await local(new Task(), import.meta.url);
 export async function handler(event: Event = {}) {
-    if (event.type === 'schema:input') {
-        return await Task.schema(SchemaType.Input);
-    } else if (event.type === 'schema:output') {
-        return await Task.schema(SchemaType.Output);
-    } else {
-        const task = new Task();
-        await task.control();
-    }
+    return await internal(new Task(), event);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) handler();
