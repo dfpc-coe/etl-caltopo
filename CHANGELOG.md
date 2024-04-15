@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.1.1
+
+- :bug: Use instance method for schema
+
 ### v3.1.0
 
 - :rocket: Update to latest ETL Base & use new default fns

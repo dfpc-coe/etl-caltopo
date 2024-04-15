@@ -9,7 +9,7 @@ export interface Share {
 }
 
 export default class Task extends ETL {
-    static async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
+    async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
             return Type.Object({
                 'CALTOPO_SHARE_IDS': Type.Array(Type.Object({
