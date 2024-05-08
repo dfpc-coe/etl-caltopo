@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.2.0
+
+- :rocket: Support for styling properties
+
 ### v3.1.3
 
 - :arrow_up: Use latest base

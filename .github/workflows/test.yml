@@ -26,8 +26,8 @@ jobs:
           node-version: 18
           registry-url: https://registry.npmjs.org/
 
-      - name: NPM Install
-        run: npm install
+      - name: Docker Compose Build
+        run: docker --build . -t etl
 
-      - name: Lint
-        run: npm run lint
+      - name: Docker API Lint
+        run: docker run etl:latest sh -c "npm install --include=dev && npm run lint && npm run build"

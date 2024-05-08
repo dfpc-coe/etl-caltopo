@@ -1,7 +1,7 @@
-import fs from 'node:fs';
 import { Type, TSchema } from '@sinclair/typebox';
-import { FeatureCollection, Feature, Geometry } from 'geojson';
+import { FeatureCollection, Feature } from 'geojson';
 import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
+import { fetch } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
 
 export interface Share {
@@ -50,11 +50,19 @@ export default class Task extends ETL {
                 const url = new URL(`/api/v1/map/${share.ShareId}/since/-500`, 'https://caltopo.com/')
 
                 const res = await fetch(url);
-                const body = await res.json();
+                const body = await res.typed(Type.Object({
+                    status: Type.String(),
+                    timestamp: Type.Integer(),
+                    result: Type.Object({
+                        state: Type.Object({
+                            type: Type.String({ const: 'FeatureCollection' }),
+                            features: Type.Array(Type.Any())
+                        }),
+                        timestamp: Type.Integer(),
+                    }),
+                }));
 
-                if (body.result && body.result.state && body.result.state.features) {
-                    features.push(...body.result.state.features)
-                }
+                features.push(...body.result.state.features)
 
                 return features
                     .filter((feat) => {
@@ -67,10 +75,20 @@ export default class Task extends ETL {
                         };
 
                         feat.properties.callsign = feat.properties.metadata.title;
-                        feat.properties.remarks = feat.properties.metadata.description;
+                        feat.properties.remarks = feat.properties.metadata.description || '';
 
-                        // CalTopo returns points with 4+ coords
-                        // @ts-ignore
+                        for (const key of ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'icon']) {
+                            if (feat.properties.metadata[key] !== undefined) {
+                                if (['stroke-opacity', 'fill-opacity'].includes('key')) {    
+                                    feat.properties[key] = feat.properties.metadata[key] * 255;
+                                } else {
+                                    feat.properties[key] = feat.properties.metadata[key];
+                                }
+                                delete feat.properties.metadata[key];
+                            }
+                        }
+
+                        // @ts-expect-error CalTopo returns points with 4+ coords
                         coordEach(feat.geometry, (coord) => {
                             return coord.splice(3)
                         });
