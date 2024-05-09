@@ -2,7 +2,7 @@
     "name": "coe-caltopo",
     "type": "module",
     "prviate": true,
-    "version": "3.2.0",
+    "version": "3.2.1",
     "description": "",
     "main": "index.js",
     "scripts": {
