@@ -79,7 +79,7 @@ export default class Task extends ETL {
 
                         for (const key of ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'icon']) {
                             if (feat.properties.metadata[key] !== undefined) {
-                                if (['stroke-opacity', 'fill-opacity'].includes('key')) {    
+                                if (['stroke-opacity', 'fill-opacity'].includes(key)) {    
                                     feat.properties[key] = feat.properties.metadata[key] * 255;
                                 } else {
                                     feat.properties[key] = feat.properties.metadata[key];

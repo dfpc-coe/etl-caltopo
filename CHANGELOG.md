@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.2.1
+
+- :bug: Fix opacity parsing
+
 ### v3.2.0
 
 - :rocket: Support for styling properties
