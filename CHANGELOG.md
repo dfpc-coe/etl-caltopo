@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.3.0
+
+- :rocket: Update to support point type
+
 ### v3.2.1
 
 - :bug: Fix opacity parsing
