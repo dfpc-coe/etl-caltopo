@@ -93,6 +93,11 @@ export default class Task extends ETL {
                             return coord.splice(3)
                         });
 
+                        feat.properties.archived = true;
+                        if (feat.geometry.type === 'Point') {
+                            feat.properties.type = 'u-d-p';
+                        }
+
                         return feat;
                     });
             })(share))
