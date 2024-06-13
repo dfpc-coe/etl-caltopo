@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.4.0
+
+- :rocket: Parse and submit marker colour
+
 ### v3.3.0
 
 - :rocket: Update to support point type

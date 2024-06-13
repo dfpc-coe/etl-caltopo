@@ -79,7 +79,7 @@ export default class Task extends ETL {
 
                         for (const key of ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'icon']) {
                             if (feat.properties.metadata[key] !== undefined) {
-                                if (['stroke-opacity', 'fill-opacity'].includes(key)) {    
+                                if (['stroke-opacity', 'fill-opacity'].includes(key)) {
                                     feat.properties[key] = feat.properties.metadata[key] * 255;
                                 } else {
                                     feat.properties[key] = feat.properties.metadata[key];
@@ -96,6 +96,11 @@ export default class Task extends ETL {
                         feat.properties.archived = true;
                         if (feat.geometry.type === 'Point') {
                             feat.properties.type = 'u-d-p';
+
+                            if (feat.properties.metadata['marker-color']) {
+                                feat.properties.color = `#${feat.properties.metadata['marker-color']}`;
+                                delete feat.properties.metadata['marker-color'];
+                            }
                         }
 
                         return feat;
