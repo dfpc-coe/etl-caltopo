@@ -98,8 +98,9 @@ export default class Task extends ETL {
                             feat.properties.type = 'u-d-p';
 
                             if (feat.properties.metadata['marker-color']) {
-                                feat.properties.color = `#${feat.properties.metadata['marker-color']}`;
+                                feat.properties['marker-color'] = `#${feat.properties.metadata['marker-color']}`;
                                 delete feat.properties.metadata['marker-color'];
+                                feat.properties['marker-opacity'] = 255;
                             }
                         }
 
