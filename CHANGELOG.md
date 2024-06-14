@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.6.0
+
+- :rocket: Update to use new typed environment helper
+
 ### v3.5.0
 
 - :rocket: Parse and submit marker colour
