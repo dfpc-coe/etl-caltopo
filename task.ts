@@ -4,28 +4,26 @@ import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps
 import { fetch } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
 
-export interface Share {
-    ShareId: string;
-}
+const Env = Type.Object({
+    'CALTOPO_SHARE_IDS': Type.Array(Type.Object({
+        Name: Type.String({
+            description: 'Human Readable name of the CalTopo Map',
+            default: ''
+        }),
+        ShareId: Type.String({
+            description: 'CalTopo Share ID'
+        }),
+    })),
+    'DEBUG': Type.Boolean({
+        default: false,
+        description: 'Print results in logs'
+    })
+});
 
 export default class Task extends ETL {
     async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
-            return Type.Object({
-                'CALTOPO_SHARE_IDS': Type.Array(Type.Object({
-                    Name: Type.String({
-                        description: 'Human Readable name of the CalTopo Map',
-                        default: ''
-                    }),
-                    ShareId: Type.String({
-                        description: 'CalTopo Share ID'
-                    }),
-                })),
-                'DEBUG': Type.Boolean({
-                    default: false,
-                    description: 'Print results in logs'
-                })
-            });
+            return Env;
         } else {
             return Type.Object({
                 title: Type.String(),
@@ -36,15 +34,12 @@ export default class Task extends ETL {
     }
 
     async control(): Promise<void> {
-        const layer = await this.fetchLayer();
-
-        if (!layer.environment.CALTOPO_SHARE_IDS) throw new Error('No CALTOPO_SHARE_IDS Provided');
-        if (!Array.isArray(layer.environment.CALTOPO_SHARE_IDS)) throw new Error('CALTOPO_SHARE_IDS must be an array');
+        const env = await this.env(Env);
 
         const features: Feature[] = [];
         const obtains: Array<Promise<Feature[]>> = [];
-        for (const share of layer.environment.CALTOPO_SHARE_IDS) {
-            obtains.push((async (share: Share): Promise<Feature[]> => {
+        for (const share of env.CALTOPO_SHARE_IDS) {
+            obtains.push((async (share): Promise<Feature[]> => {
                 console.log(`ok - requesting ${share.ShareId}`);
 
                 const url = new URL(`/api/v1/map/${share.ShareId}/since/-500`, 'https://caltopo.com/')
@@ -88,7 +83,7 @@ export default class Task extends ETL {
                             }
                         }
 
-                        // @ts-expect-error CalTopo returns points with 4+ coords
+                        // CalTopo returns points with 4+ coords
                         coordEach(feat.geometry, (coord) => {
                             return coord.splice(3)
                         });
