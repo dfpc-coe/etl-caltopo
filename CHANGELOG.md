@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.7.0
+
+- :rocket: Use 0-1 opacity values
+
 ### v3.6.0
 
 - :rocket: Update to use new typed environment helper
