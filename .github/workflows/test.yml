@@ -27,7 +27,7 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - name: Docker Compose Build
-        run: docker --build . -t etl
+        run: docker build . -t etl
 
       - name: Docker API Lint
         run: docker run etl:latest sh -c "npm install --include=dev && npm run lint && npm run build"
