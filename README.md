@@ -1,4 +1,4 @@
-<h1 align='center'>ETL-CalTOPO</h1>
+<h1 align='center'>ETL-CalTopo</h1>
 
 <p align='center'>Bring CALTopo Maps into the TAK System</p>
 
