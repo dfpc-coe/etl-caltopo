@@ -1,6 +1,7 @@
 import { Type, TSchema } from '@sinclair/typebox';
 import { FeatureCollection, Feature } from 'geojson';
-import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
+import type { Event } from '@tak-ps/etl';
+import ETL, { SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 import { fetch } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
 
