@@ -1,20 +1,15 @@
-import { Type, TSchema } from '@sinclair/typebox';
-import { FeatureCollection, Feature } from 'geojson';
+import { Type, TSchema, Static } from '@sinclair/typebox';
+import type { Feature } from 'geojson';
+import { Feature as COTFeature } from '@tak-ps/node-cot';
 import type { Event } from '@tak-ps/etl';
 import ETL, { SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 import { fetch } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
 
 const Env = Type.Object({
-    'CALTOPO_SHARE_IDS': Type.Array(Type.Object({
-        Name: Type.String({
-            description: 'Human Readable name of the CalTopo Map',
-            default: ''
-        }),
-        ShareId: Type.String({
-            description: 'CalTopo Share ID'
-        }),
-    })),
+    ShareId: Type.String({
+        description: 'CalTopo Share ID',
+    }),
     'DEBUG': Type.Boolean({
         default: false,
         description: 'Print results in logs'
@@ -37,81 +32,69 @@ export default class Task extends ETL {
     async control(): Promise<void> {
         const env = await this.env(Env);
 
-        const features: Feature[] = [];
-        const obtains: Array<Promise<Feature[]>> = [];
-        for (const share of env.CALTOPO_SHARE_IDS) {
-            obtains.push((async (share): Promise<Feature[]> => {
-                console.log(`ok - requesting ${share.ShareId}`);
+        let features: Static<typeof COTFeature.InputFeature>[] = [];
+        console.log(`ok - requesting ${env.ShareId}`);
 
-                const url = new URL(`/api/v1/map/${share.ShareId}/since/-500`, 'https://caltopo.com/')
+        const url = new URL(`/api/v1/map/${env.ShareId}/since/-500`, 'https://caltopo.com/')
 
-                const res = await fetch(url);
-                const body = await res.typed(Type.Object({
-                    status: Type.String(),
-                    timestamp: Type.Integer(),
-                    result: Type.Object({
-                        state: Type.Object({
-                            type: Type.String({ const: 'FeatureCollection' }),
-                            features: Type.Array(Type.Any())
-                        }),
-                        timestamp: Type.Integer(),
-                    }),
-                }));
+        const res = await fetch(url);
+        const body = await res.typed(Type.Object({
+            status: Type.String(),
+            timestamp: Type.Integer(),
+            result: Type.Object({
+                state: Type.Object({
+                    type: Type.String({ const: 'FeatureCollection' }),
+                    features: Type.Array(Type.Any())
+                }),
+                timestamp: Type.Integer(),
+            }),
+        }));
 
-                features.push(...body.result.state.features)
+        features.push(...body.result.state.features)
 
-                return features
-                    .filter((feat) => {
-                        // SARTopo will send "features" like "Operational Periods" which do not have geometry
-                        return !!feat.geometry;
-                    })
-                    .map((feat) => {
-                        feat.properties = {
-                            metadata: feat.properties
-                        };
+        features = features
+            .filter((feat) => {
+                // SARTopo will send "features" like "Operational Periods" which do not have geometry
+                return !!feat.geometry;
+            })
+            .map((feat) => {
+                feat.properties = {
+                    metadata: feat.properties
+                };
 
-                        feat.properties.callsign = feat.properties.metadata.title;
-                        feat.properties.remarks = feat.properties.metadata.description || '';
+                feat.properties.callsign = String(feat.properties.metadata.title);
+                feat.properties.remarks = feat.properties.metadata.description ? String(feat.properties.metadata.description) : '';
 
-                        for (const key of ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'icon']) {
-                            if (feat.properties.metadata[key] !== undefined) {
-                                feat.properties[key] = feat.properties.metadata[key];
-                                delete feat.properties.metadata[key];
-                            }
-                        }
+                if (feat.properties.metadata.fill !== undefined) feat.properties.fill = String(feat.properties.metadata.fill);
+                if (feat.properties.metadata['fill-opacity'] !== undefined) feat.properties['fill-opacity'] = Number(feat.properties.metadata['fill-opacity']);
+                if (feat.properties.metadata.stroke !== undefined) feat.properties.stroke = String(feat.properties.metadata.stroke);
+                if (feat.properties.metadata['stroke-opacity'] !== undefined) feat.properties['stroke-opacity'] = Number(feat.properties.metadata['stroke-opacity']);
+                if (feat.properties.metadata['stroke-width'] !== undefined) feat.properties['stroke-width'] = Number(feat.properties.metadata['stroke-width']);
+                if (feat.properties.metadata.ico !== undefined) feat.properties.icon = String(feat.properties.metadata.icon);
 
-                        // CalTopo returns points with 4+ coords
-                        coordEach(feat.geometry, (coord) => {
-                            return coord.splice(3)
-                        });
+                // CalTopo returns points with 4+ coords
+                coordEach(feat.geometry, (coord) => {
+                    return coord.splice(3)
+                });
 
-                        feat.properties.archived = true;
-                        if (feat.geometry.type === 'Point') {
-                            feat.properties.type = 'u-d-p';
+                feat.properties.archived = true;
+                if (feat.geometry.type === 'Point') {
+                    feat.properties.type = 'u-d-p';
 
-                            if (feat.properties.metadata['marker-color']) {
-                                feat.properties['marker-color'] = `#${feat.properties.metadata['marker-color']}`;
-                                delete feat.properties.metadata['marker-color'];
-                                feat.properties['marker-opacity'] = 1;
-                            }
-                        }
+                    if (feat.properties.metadata['marker-color']) {
+                        feat.properties['marker-color'] = `#${feat.properties.metadata['marker-color']}`;
+                        delete feat.properties.metadata['marker-color'];
+                        feat.properties['marker-opacity'] = 1;
+                    }
+                }
 
-                        return feat;
-                    });
-            })(share))
-        }
+                return feat;
+            });
 
-        const fc: FeatureCollection = {
+        await this.submit({
             type: 'FeatureCollection',
-            features: []
-        }
-
-        for (const res of await Promise.all(obtains)) {
-            if (!res || !res.length) continue;
-            fc.features.push(...res);
-        }
-
-        await this.submit(fc);
+            features: features as Feature[]
+        });
     }
 }
 

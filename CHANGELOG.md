@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v4.0.0
+
+- :rocket: One CalTopo Map per Layer (simplifies end-user UI)
+- :rocket: Strongly type input features
+
 ### v3.8.0
 
 - :arrow_up: Update Core Deps
