@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.1.0
+
+- :rocket: Add support for CalTopo Folders
+
 ### v4.0.0
 
 - :rocket: One CalTopo Map per Layer (simplifies end-user UI)

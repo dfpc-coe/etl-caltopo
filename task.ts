@@ -1,6 +1,5 @@
 import { Type, TSchema, Static } from '@sinclair/typebox';
-import type { Feature } from 'geojson';
-import { Feature as COTFeature } from '@tak-ps/node-cot';
+import { Feature } from '@tak-ps/node-cot';
 import type { Event } from '@tak-ps/etl';
 import ETL, { SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 import { fetch } from '@tak-ps/etl';
@@ -16,23 +15,44 @@ const Env = Type.Object({
     })
 });
 
+const Output = Type.Object({
+    title: Type.String(),
+    description: Type.Optional(Type.String()),
+    class: Type.String(),
+    creator: Type.String(),
+    updated: Type.Number(),
+
+    'marker-symbol': Type.Optional(Type.String()),
+    'marker-rotation': Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    'marker-color': Type.Optional(Type.String()),
+    'marker-size': Type.Optional(Type.String()),
+
+    stroke: Type.Optional(Type.String()),
+    'stroke-opacity': Type.Optional(Type.Number()),
+    'stroke-width': Type.Optional(Type.Number()),
+    pattern: Type.Optional(Type.String()),
+
+    fill: Type.Optional(Type.String()),
+    'fill-opacity': Type.Optional(Type.Number()),
+
+    folderId: Type.Optional(Type.String()),
+    visible: Type.Optional(Type.Boolean()),
+    labelVisible: Type.Optional(Type.Boolean()),
+});
+
 export default class Task extends ETL {
     async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
             return Env;
         } else {
-            return Type.Object({
-                title: Type.String(),
-                class: Type.String(),
-                creator: Type.String()
-            });
+            return Output;
         }
     }
 
     async control(): Promise<void> {
         const env = await this.env(Env);
 
-        let features: Static<typeof COTFeature.InputFeature>[] = [];
+        let features: Static<typeof Feature.InputFeature>[] = [];
         console.log(`ok - requesting ${env.ShareId}`);
 
         const url = new URL(`/api/v1/map/${env.ShareId}/since/-500`, 'https://caltopo.com/')
@@ -44,26 +64,41 @@ export default class Task extends ETL {
             result: Type.Object({
                 state: Type.Object({
                     type: Type.String({ const: 'FeatureCollection' }),
-                    features: Type.Array(Type.Any())
+                    features: Type.Array(Type.Object({
+                        id: Type.String(),
+                        type: Type.Literal('Feature'),
+                        properties: Output,
+                        geometry: Type.Optional(Type.Any())
+                    }))
                 }),
                 timestamp: Type.Integer(),
             }),
         }));
 
-        features.push(...body.result.state.features)
+        const folders: Map<string, Static<typeof Output>> = new Map();
 
-        features = features
+        features = body.result.state.features
             .filter((feat) => {
-                // SARTopo will send "features" like "Operational Periods" which do not have geometry
-                return !!feat.geometry;
+                if (feat.properties.class === 'Folder') {
+                    folders.set(feat.id, feat.properties);
+                    return false;
+                } else {
+                    // SARTopo will send "features" like "Operational Periods" which do not have geometry
+                    return !!feat.geometry;
+                }
             })
-            .map((feat) => {
-                feat.properties = {
-                    metadata: feat.properties
+            .map((calFeat) => {
+                const feat: Static<typeof Feature.InputFeature> = {
+                    id: calFeat.id,
+                    type: 'Feature',
+                    properties: {
+                        metadata: calFeat.properties
+                    },
+                    geometry: calFeat.geometry
                 };
 
-                feat.properties.callsign = String(feat.properties.metadata.title);
-                feat.properties.remarks = feat.properties.metadata.description ? String(feat.properties.metadata.description) : '';
+                feat.properties.callsign = String(calFeat.properties.title);
+                feat.properties.remarks = calFeat.properties.description ? String(calFeat.properties.description) : '';
 
                 if (feat.properties.metadata.fill !== undefined) feat.properties.fill = String(feat.properties.metadata.fill);
                 if (feat.properties.metadata['fill-opacity'] !== undefined) feat.properties['fill-opacity'] = Number(feat.properties.metadata['fill-opacity']);
@@ -91,9 +126,21 @@ export default class Task extends ETL {
                 return feat;
             });
 
+        // After all Features/Folders have been seperated, apply folder => path transform
+        features = features.map((feat) => {
+            if (feat.properties.metadata.folderId && typeof feat.properties.metadata.folderId === 'string') {
+                const folder = folders.get(feat.properties.metadata.folderId);
+                if (folder) {
+                    feat.path = `/${folder.title}`;
+                }
+            }
+
+            return feat;
+        });
+
         await this.submit({
             type: 'FeatureCollection',
-            features: features as Feature[]
+            features: features
         });
     }
 }
