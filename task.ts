@@ -43,7 +43,7 @@ const Output = Type.Object({
 export default class Task extends ETL {
     static name = 'etl-caltopo';
     static flow = [ DataFlowType.Incoming ];
-    static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
+    static invocation = [ InvocationType.Schedule ];
 
     async schema(
         type: SchemaType = SchemaType.Input,

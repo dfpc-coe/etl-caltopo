@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.2.1
+
+- :bug: Remove webhook type
+
 ### v4.2.0
 
 - :tada: Add Capbilities API
