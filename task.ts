@@ -1,7 +1,7 @@
 import { Type, TSchema, Static } from '@sinclair/typebox';
 import { Feature } from '@tak-ps/node-cot';
 import type { Event } from '@tak-ps/etl';
-import ETL, { SchemaType, handler as internal, local, env } from '@tak-ps/etl';
+import ETL, { SchemaType, handler as internal, local, DataFlowType, InvocationType } from '@tak-ps/etl';
 import { fetch } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
 
@@ -41,11 +41,22 @@ const Output = Type.Object({
 });
 
 export default class Task extends ETL {
-    async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
-        if (type === SchemaType.Input) {
-            return Env;
+    static name = 'etl-caltopo';
+    static flow = [ DataFlowType.Incoming ];
+    static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
+
+    async schema(
+        type: SchemaType = SchemaType.Input,
+        flow: DataFlowType = DataFlowType.Incoming
+    ): Promise<TSchema> {
+        if (flow === DataFlowType.Incoming) {
+            if (type === SchemaType.Input) {
+                return Env;
+            } else {
+                return Output;
+            }
         } else {
-            return Output;
+            return Type.Object({});
         }
     }
 
@@ -145,9 +156,8 @@ export default class Task extends ETL {
     }
 }
 
-env(import.meta.url)
-await local(new Task(), import.meta.url);
+await local(new Task(import.meta.url), import.meta.url);
 export async function handler(event: Event = {}) {
-    return await internal(new Task(), event);
+    return await internal(new Task(import.meta.url), event);
 }
 

@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.2.0
+
+- :tada: Add Capbilities API
+
 ### v4.1.0
 
 - :rocket: Add support for CalTopo Folders
