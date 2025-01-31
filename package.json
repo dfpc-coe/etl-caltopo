@@ -19,7 +19,7 @@
     },
     "dependencies": {
         "@sinclair/typebox": "^0.33.0",
-        "@tak-ps/etl": "^7.1.1",
+        "@tak-ps/etl": "^8.0.2",
         "@turf/meta": "^7.0.0",
         "@types/geojson": "^7946.0.10"
     }
