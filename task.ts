@@ -22,20 +22,20 @@ const Output = Type.Object({
     creator: Type.String(),
     updated: Type.Number(),
 
-    'marker-symbol': Type.Optional(Type.String()),
+    'marker-symbol': Type.Optional(Type.Union([Type.String(), Type.Null()])),
     'marker-rotation': Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    'marker-color': Type.Optional(Type.String()),
-    'marker-size': Type.Optional(Type.String()),
+    'marker-color': Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    'marker-size': Type.Optional(Type.Union([Type.String(), Type.Null()])),
 
-    stroke: Type.Optional(Type.String()),
-    'stroke-opacity': Type.Optional(Type.Number()),
-    'stroke-width': Type.Optional(Type.Number()),
-    pattern: Type.Optional(Type.String()),
+    stroke: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    'stroke-opacity': Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+    'stroke-width': Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+    pattern: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 
-    fill: Type.Optional(Type.String()),
-    'fill-opacity': Type.Optional(Type.Number()),
+    fill: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    'fill-opacity': Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 
-    folderId: Type.Optional(Type.String()),
+    folderId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     visible: Type.Optional(Type.Boolean()),
     labelVisible: Type.Optional(Type.Boolean()),
 });
@@ -84,7 +84,9 @@ export default class Task extends ETL {
                 }),
                 timestamp: Type.Integer(),
             }),
-        }));
+        }), {
+            verbose: env.DEBUG
+        });
 
         const folders: Map<string, Static<typeof Output>> = new Map();
 
@@ -152,6 +154,8 @@ export default class Task extends ETL {
         await this.submit({
             type: 'FeatureCollection',
             features: features
+        }, {
+            verbose: env.DEBUG
         });
     }
 }

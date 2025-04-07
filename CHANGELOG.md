@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v5.1.0
+
+- :rocket: Reduce log verbosity without DEBUG: true set
+
 ### v5.0.0
 
 - :tada: Update to `CloudTAK@v6`
