@@ -12,14 +12,18 @@
     },
     "author": "Nick Ingalls <nick@ingalls.ca>",
     "license": "ISC",
+    "engines": {
+        "node": ">= 24"
+    },
     "devDependencies": {
-        "eslint": "^9.0.0",
-        "typescript": "^5.0.4",
-        "typescript-eslint": "^8.0.0"
+        "eslint": "^10.0.0",
+        "typescript": "^6.0.0",
+        "typescript-eslint": "^8.58.1",
+        "@eslint/js": "^10.0.0"
     },
     "dependencies": {
         "@sinclair/typebox": "^0.34.0",
-        "@tak-ps/etl": "^9.3.0",
+        "@tak-ps/etl": "^10.0.0",
         "@turf/meta": "^7.0.0",
         "@types/geojson": "^7946.0.10"
     }

@@ -1,23 +1,16 @@
 {
-    "ts-node": {
-        "esm": true
-    },
-    "compilerOptions": {
-        "module": "es2022",
-        "esModuleInterop": true,
-        "target": "es2022",
-        "noImplicitAny": true,
-        "moduleResolution": "node",
-        "sourceMap": true,
-        "outDir": "dist",
-        "baseUrl": ".",
-        "paths": {
-            "*": [
-                "node_modules/*"
-            ]
-        }
-    },
-    "include": [
-        "task.ts"
-    ]
+	"compilerOptions": {
+		"target": "ES2025",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"strict": true,
+		"rootDir": "./",
+		"outDir": "./dist",
+		"types": ["node"],
+		"esModuleInterop": true,
+		"skipLibCheck": true
+	},
+	"include": [
+		"task.ts"
+	]
 }

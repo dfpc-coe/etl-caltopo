@@ -63,7 +63,6 @@ export default class Task extends ETL {
     async control(): Promise<void> {
         const env = await this.env(Env);
 
-        let features: Static<typeof Feature.InputFeature>[] = [];
         console.log(`ok - requesting ${env.ShareId}`);
 
         const url = new URL(`/api/v1/map/${env.ShareId}/since/-500`, 'https://caltopo.com/')
@@ -90,7 +89,7 @@ export default class Task extends ETL {
 
         const folders: Map<string, Static<typeof Output>> = new Map();
 
-        features = body.result.state.features
+        const features: Static<typeof Feature.InputFeature>[] = body.result.state.features
             .filter((feat) => {
                 if (feat.properties.class === 'Folder') {
                     folders.set(feat.id, feat.properties);
@@ -109,16 +108,17 @@ export default class Task extends ETL {
                     },
                     geometry: calFeat.geometry
                 };
+                const metadata = feat.properties.metadata ?? {};
 
                 feat.properties.callsign = String(calFeat.properties.title);
                 feat.properties.remarks = calFeat.properties.description ? String(calFeat.properties.description) : '';
 
-                if (feat.properties.metadata.fill !== undefined) feat.properties.fill = String(feat.properties.metadata.fill);
-                if (feat.properties.metadata['fill-opacity'] !== undefined) feat.properties['fill-opacity'] = Number(feat.properties.metadata['fill-opacity']);
-                if (feat.properties.metadata.stroke !== undefined) feat.properties.stroke = String(feat.properties.metadata.stroke);
-                if (feat.properties.metadata['stroke-opacity'] !== undefined) feat.properties['stroke-opacity'] = Number(feat.properties.metadata['stroke-opacity']);
-                if (feat.properties.metadata['stroke-width'] !== undefined) feat.properties['stroke-width'] = Number(feat.properties.metadata['stroke-width']);
-                if (feat.properties.metadata.ico !== undefined) feat.properties.icon = String(feat.properties.metadata.icon);
+                if (metadata.fill !== undefined) feat.properties.fill = String(metadata.fill);
+                if (metadata['fill-opacity'] !== undefined) feat.properties['fill-opacity'] = Number(metadata['fill-opacity']);
+                if (metadata.stroke !== undefined) feat.properties.stroke = String(metadata.stroke);
+                if (metadata['stroke-opacity'] !== undefined) feat.properties['stroke-opacity'] = Number(metadata['stroke-opacity']);
+                if (metadata['stroke-width'] !== undefined) feat.properties['stroke-width'] = Number(metadata['stroke-width']);
+                if (metadata.ico !== undefined) feat.properties.icon = String(metadata.icon);
 
                 // CalTopo returns points with 4+ coords
                 coordEach(feat.geometry, (coord) => {
@@ -129,27 +129,27 @@ export default class Task extends ETL {
                 if (feat.geometry.type === 'Point') {
                     feat.properties.type = 'u-d-p';
 
-                    if (feat.properties.metadata['marker-color']) {
-                        feat.properties['marker-color'] = `#${feat.properties.metadata['marker-color']}`;
-                        delete feat.properties.metadata['marker-color'];
+                    if (metadata['marker-color']) {
+                        feat.properties['marker-color'] = `#${metadata['marker-color']}`;
+                        delete metadata['marker-color'];
                         feat.properties['marker-opacity'] = 1;
                     }
                 }
 
                 return feat;
-            });
-
-        // After all Features/Folders have been seperated, apply folder => path transform
-        features = features.map((feat) => {
-            if (feat.properties.metadata.folderId && typeof feat.properties.metadata.folderId === 'string') {
-                const folder = folders.get(feat.properties.metadata.folderId);
-                if (folder) {
-                    feat.path = `/${folder.title}`;
+            })
+            // After all Features/Folders have been seperated, apply folder => path transform
+            .map((feat) => {
+                const metadata = feat.properties.metadata;
+                if (metadata?.folderId && typeof metadata.folderId === 'string') {
+                    const folder = folders.get(metadata.folderId);
+                    if (folder) {
+                        feat.path = `/${folder.title}`;
+                    }
                 }
-            }
 
-            return feat;
-        });
+                return feat;
+            });
 
         await this.submit({
             type: 'FeatureCollection',
