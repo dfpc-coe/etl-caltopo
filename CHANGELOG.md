@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v5.10.0
+
+- :arrow_up: Update Core Dependencies
+
 ### v5.9.0
 
 - :arrow_up: Update Core Dependencies
