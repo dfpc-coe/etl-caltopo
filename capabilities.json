@@ -1,0 +1,27 @@
+{
+    "version": "1.0",
+    "name": "CalTopo",
+    "description": "Ingests team member, device, and map object locations from CalTopo and posts them to the map.",
+    "compute": {
+        "memory": 512,
+        "timeout": 60
+    },
+    "permissions": [
+        {
+            "resource": "feature:*",
+            "required": true,
+            "description": "CalTopo posts team, device, and map object locations to the map"
+        }
+    ],
+    "invocations": {
+        "incoming": {
+            "schedule": {
+                "description": "Polls CalTopo for updated team and map object locations on a schedule.",
+                "default": {
+                    "enabled": true,
+                    "schedule": "rate(1 minute)"
+                }
+            }
+        }
+    }
+}

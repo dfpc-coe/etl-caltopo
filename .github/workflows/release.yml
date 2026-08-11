@@ -1,24 +1,26 @@
-name: NPM Release
+name: Release
 
 on:
   push:
     tags:
       - '*'
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+permissions:
+  contents: write
 
-      - name: Get tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
 
       - name: Generate CHANGELOG
-        run: grep -Pzo "### ${{steps.tag.outputs.tag}}(?s).*?(?=###)" CHANGELOG.md > RELEASE
+        run: |
+          grep -Pzo "### ${{ github.ref_name }}(?s).*?(?=###)" CHANGELOG.md > RELEASE \
+            || echo "See CHANGELOG.md for release notes" > RELEASE
 
       - name: Github Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: RELEASE

@@ -14,53 +14,49 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{github.event.pull_request.head.sha || github.sha}}
 
-      - name: Docker Build ETL
-        run: docker build -t etl .
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
 
-      - name: Get tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
+      - name: Install CloudTAK ETL CLI
+        run: npm install --global @tak-ps/etl
+
+      - name: Configure AWS Credentials (Prod)
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws-us-gov:iam::${{secrets.AWS_ACCOUNT_ID}}:role/Github-ECR-Builder
           role-session-name: GithubECRBuilder
           aws-region: ${{secrets.AWS_REGION}}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Push ETL to Prod (COTAK & WFTAK)
+      - name: Build & Push ETL to Prod (COTAK & WFTAK)
+        env:
+          AWS_ACCOUNT_ID: ${{secrets.AWS_ACCOUNT_ID}}
+          AWS_REGION: ${{secrets.AWS_REGION}}
         run: |
-          TAG="${{github.event.repository.name}}-${{steps.tag.outputs.tag}}"
-          for env in cotak-prod wftak-prod; do
-            REPO="${{secrets.AWS_ACCOUNT_ID}}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/tak-vpc-${env}-cloudtak-tasks"
-            docker tag etl $REPO:$TAG
-            docker push $REPO:$TAG
+          for environment in cotak-prod wftak-prod; do
+            Environment="$environment" cloudtak-etl
           done
 
       - name: Configure AWS Credentials (Staging)
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{secrets.AWS_STAGING_ACCOUNT_ID}}:role/Github-ECR-Builder
           role-session-name: GithubECRBuilder
           aws-region: ${{secrets.AWS_STAGING_REGION}}
 
-      - name: Login to Amazon ECR (Staging)
-        id: login-ecr-staging
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Push ETL to Staging (COTAK & WFTAK)
+      - name: Build & Push ETL to Staging (COTAK & WFTAK)
+        env:
+          AWS_ACCOUNT_ID: ${{secrets.AWS_STAGING_ACCOUNT_ID}}
+          AWS_REGION: ${{secrets.AWS_STAGING_REGION}}
         run: |
-          TAG="${{github.event.repository.name}}-${{steps.tag.outputs.tag}}"
-          for env in cotak-staging wftak-staging; do
-            REPO="${{secrets.AWS_STAGING_ACCOUNT_ID}}.dkr.ecr.${{secrets.AWS_STAGING_REGION}}.amazonaws.com/tak-vpc-${env}-cloudtak-tasks"
-            docker tag etl $REPO:$TAG
-            docker push $REPO:$TAG
+          for environment in cotak-staging wftak-staging; do
+            Environment="$environment" cloudtak-etl
           done
