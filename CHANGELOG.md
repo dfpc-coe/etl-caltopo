@@ -10,6 +10,14 @@
 
 ## Version History
 
+### Pending
+
+### v5.12.0
+
+- :tada: Add Team Account support, choosing between a single Map ID and a signed Team Account request via a `Source` union in the layer environment (Team mode takes an Account ID, Credential ID & Credential Secret)
+- :rocket: Import every Collaborative Map on a Team Account when no Map ID is given, using the map title as the feature path
+- :rocket: Keep accepting the legacy top level `ShareId` environment for existing layers
+
 ### v5.11.0
 
 - :rocket: Add Capabilities document

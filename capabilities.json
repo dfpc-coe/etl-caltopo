@@ -1,7 +1,7 @@
 {
     "version": "1.0",
     "name": "CalTopo",
-    "description": "Ingests team member, device, and map object locations from CalTopo and posts them to the map.",
+    "description": "Ingests map objects from a shared CalTopo map or every map on a CalTopo Team Account and posts them to the map.",
     "compute": {
         "memory": 512,
         "timeout": 60
