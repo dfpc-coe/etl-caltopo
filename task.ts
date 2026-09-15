@@ -24,10 +24,10 @@ const TeamSource = Type.Object({
     CredentialSecret: Type.String({
         description: 'Service Account Credential Secret',
     }),
-    MapId: Type.Optional(Type.String({
-        description: 'Limit to a single Map ID, otherwise every map on the team account is imported',
-    })),
-}, { title: 'Team Account' });
+}, {
+    title: 'Team Account',
+    description: 'Surfaces the live Shared Locations of devices reporting to the Team Account',
+});
 
 const Env = Type.Object({
     Source: Type.Union([MapSource, TeamSource]),
@@ -44,6 +44,8 @@ const LegacyEnv = Type.Object({
 });
 
 const CALTOPO = 'https://caltopo.com/';
+// Matches the CalTopo Shared Locations overlay default expiry
+const LOCATION_TTL = 30 * 60 * 1000;
 
 /**
  * Append the CalTopo service account signature query parameters
@@ -63,6 +65,17 @@ function sign(method: string, url: URL, creds: Static<typeof TeamSource>, payloa
 
     return url;
 }
+
+const LocationOutput = Type.Object({
+    title: Type.Optional(Type.String()),
+    device: Type.Optional(Type.String()),
+    sharedWith: Type.Optional(Type.String()),
+    type: Type.Optional(Type.String()),
+    updated: Type.Optional(Type.Number()),
+    ttl: Type.Optional(Type.Number()),
+    stroke: Type.Optional(Type.String()),
+    'aircraft:heading': Type.Optional(Type.Number()),
+});
 
 const Output = Type.Object({
     title: Type.String(),
@@ -116,20 +129,9 @@ export default class Task extends ETL {
             ? { Source: { Mode: 'Map', MapId: raw.ShareId }, DEBUG: raw.DEBUG }
             : raw;
 
-        let features: Static<typeof Feature.InputFeature>[] = [];
-
-        if (env.Source.Mode === 'Map') {
-            const url = new URL(`/api/v1/map/${env.Source.MapId}/since/-500`, CALTOPO);
-            features = await this.fetchMap(url, env.DEBUG);
-        } else if (env.Source.MapId) {
-            const url = sign('GET', new URL(`/api/v1/map/${env.Source.MapId}/since/-500`, CALTOPO), env.Source);
-            features = await this.fetchMap(url, env.DEBUG);
-        } else {
-            for (const map of await this.fetchTeamMaps(env.Source, env.DEBUG)) {
-                const url = sign('GET', new URL(`/api/v1/map/${map.id}/since/-500`, CALTOPO), env.Source);
-                features.push(...await this.fetchMap(url, env.DEBUG, `/${map.title}`));
-            }
-        }
+        const features = env.Source.Mode === 'Map'
+            ? await this.fetchMap(new URL(`/api/v1/map/${env.Source.MapId}/since/-500`, CALTOPO), env.DEBUG)
+            : await this.fetchLocations(env.Source, env.DEBUG);
 
         await this.submit({
             type: 'FeatureCollection',
@@ -140,40 +142,80 @@ export default class Task extends ETL {
     }
 
     /**
-     * List the Collaborative Maps visible to a Team Account service credential
+     * Fetch the Shared Locations visible to a Team Account service credential
+     * Each location is a track whose last coordinate is the current position, coords are [lng, lat, alt, time]
      */
-    async fetchTeamMaps(creds: Static<typeof TeamSource>, verbose: boolean): Promise<Array<{ id: string, title: string }>> {
-        console.log(`ok - requesting team ${creds.AccountId}`);
+    async fetchLocations(creds: Static<typeof TeamSource>, verbose: boolean): Promise<Static<typeof Feature.InputFeature>[]> {
+        console.log(`ok - requesting shared locations for ${creds.AccountId}`);
 
-        const url = sign('GET', new URL(`/api/v1/acct/${creds.AccountId}/since/0`, CALTOPO), creds);
+        const url = sign('GET', new URL('/api/v1/geodata/locations', CALTOPO), creds);
+        url.searchParams.set('json', JSON.stringify({ bbox: null, zoom: 8 }));
 
         const res = await fetch(url);
         const body = await res.typed(Type.Object({
             status: Type.String(),
+            timestamp: Type.Optional(Type.Integer()),
             result: Type.Object({
-                state: Type.Object({
-                    features: Type.Array(Type.Object({
-                        id: Type.String(),
-                        properties: Type.Object({
-                            class: Type.String(),
-                            title: Type.Optional(Type.String()),
-                        }),
-                    }))
-                }),
+                features: Type.Array(Type.Object({
+                    id: Type.Union([Type.String(), Type.Integer()]),
+                    properties: LocationOutput,
+                    geometry: Type.Optional(Type.Any()),
+                })),
             }),
         }), { verbose });
 
-        return body.result.state.features
-            .filter((feat) => feat.properties.class === 'CollaborativeMap')
-            .map((feat) => ({ id: feat.id, title: feat.properties.title || feat.id }));
+        const now = Date.now();
+        const features: Static<typeof Feature.InputFeature>[] = [];
+
+        for (const loc of body.result.features) {
+            let coord: number[] | undefined;
+            if (loc.geometry?.type === 'Point') {
+                coord = loc.geometry.coordinates;
+            } else if (loc.geometry?.type === 'LineString' && loc.geometry.coordinates.length) {
+                coord = loc.geometry.coordinates[loc.geometry.coordinates.length - 1];
+            }
+
+            if (!coord) continue;
+
+            const updated = loc.properties.updated ?? coord[3] ?? now;
+            const ttl = loc.properties.ttl ?? LOCATION_TTL;
+            if (updated + ttl < now) continue;
+
+            const id = String(loc.id);
+            const callsign = loc.properties.title || loc.properties.device || id;
+
+            const feat: Static<typeof Feature.InputFeature> = {
+                id: `caltopo-loc-${id}`,
+                type: 'Feature',
+                properties: {
+                    type: 'a-f-G-U-C',
+                    how: 'm-g',
+                    callsign,
+                    time: new Date(updated).toISOString(),
+                    start: new Date(updated).toISOString(),
+                    stale: new Date(updated + ttl).toISOString(),
+                    metadata: loc.properties
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: coord.slice(0, 3)
+                }
+            };
+
+            if (loc.properties['aircraft:heading'] !== undefined) {
+                feat.properties.course = Math.round(loc.properties['aircraft:heading']);
+            }
+
+            features.push(feat);
+        }
+
+        return features;
     }
 
     /**
      * Fetch a single CalTopo map and transform its objects into CloudTAK features
-     *
-     * @param prefix - Path prefix applied to every feature, used to separate maps from a Team Account
      */
-    async fetchMap(url: URL, verbose: boolean, prefix = ''): Promise<Static<typeof Feature.InputFeature>[]> {
+    async fetchMap(url: URL, verbose: boolean): Promise<Static<typeof Feature.InputFeature>[]> {
         console.log(`ok - requesting ${url.pathname}`);
 
         const res = await fetch(url);
@@ -251,11 +293,9 @@ export default class Task extends ETL {
                 if (metadata?.folderId && typeof metadata.folderId === 'string') {
                     const folder = folders.get(metadata.folderId);
                     if (folder) {
-                        feat.path = `${prefix}/${folder.title}`;
+                        feat.path = `/${folder.title}`;
                     }
                 }
-
-                if (!feat.path && prefix) feat.path = prefix;
 
                 return feat;
             });

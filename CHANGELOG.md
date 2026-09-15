@@ -12,6 +12,11 @@
 
 ### Pending
 
+### v5.13.0
+
+- :rocket: Team Account mode now surfaces only the live Shared Locations of devices reporting to the team, via the signed `/api/v1/geodata/locations` endpoint, as `a-f-G-U-C` points with stale times from the CalTopo TTL
+- :rocket: Remove the Team Account map import and its optional `MapId`, map objects are ingested with Single Map mode
+
 ### v5.12.0
 
 - :tada: Add Team Account support, choosing between a single Map ID and a signed Team Account request via a `Source` union in the layer environment (Team mode takes an Account ID, Credential ID & Credential Secret)
