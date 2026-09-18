@@ -12,6 +12,8 @@
 
 ### Pending
 
+### v5.14.1
+
 - :bug: Request Shared Locations with a world `bbox`, CalTopo returns an empty `200` response for a `null` bbox resulting in `Unexpected end of JSON input`
 
 ### v5.14.0
