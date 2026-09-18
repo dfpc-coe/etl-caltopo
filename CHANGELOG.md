@@ -12,6 +12,8 @@
 
 ### Pending
 
+- :bug: Request Shared Locations with a world `bbox`, CalTopo returns an empty `200` response for a `null` bbox resulting in `Unexpected end of JSON input`
+
 ### v5.14.0
 
 - :bug: Include the `json` payload in the Team Account request signature, CalTopo rejected the Shared Locations request with an empty body resulting in `Unexpected end of JSON input`

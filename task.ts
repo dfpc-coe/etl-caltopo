@@ -67,14 +67,14 @@ function sign(method: string, url: URL, creds: Static<typeof TeamSource>, payloa
 }
 
 /**
- * CalTopo responds to a rejected signature or unknown ID with an empty body, often with a 200 status
+ * CalTopo responds to requests it can't process (ie: a null bbox) with an empty body and a 200 status
  * Surface that as a readable error instead of a JSON parse failure
  */
 function assertBody(res: { ok: boolean, status: number, headers: Headers }): void {
     if (!res.ok) {
         throw new Error(`CalTopo responded with HTTP ${res.status}`);
     } else if (res.headers.get('content-length') === '0') {
-        throw new Error('CalTopo returned an empty response - check the ID & Credentials and that the credential has access');
+        throw new Error('CalTopo returned an empty response - the request was malformed or rejected');
     }
 }
 
@@ -160,8 +160,9 @@ export default class Task extends ETL {
     async fetchLocations(creds: Static<typeof TeamSource>, verbose: boolean): Promise<Static<typeof Feature.InputFeature>[]> {
         console.log(`ok - requesting shared locations for ${creds.AccountId}`);
 
-        // The signed payload must match the json parameter or CalTopo rejects the request
-        const payload = JSON.stringify({ bbox: null, zoom: 8 });
+        // CalTopo returns an empty 200 response if bbox is null, so request the whole world
+        // The signed payload must match the json parameter
+        const payload = JSON.stringify({ bbox: [-180, -90, 180, 90], zoom: 8 });
         const url = sign('GET', new URL('/api/v1/geodata/locations', CALTOPO), creds, payload);
         url.searchParams.set('json', payload);
 
