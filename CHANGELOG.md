@@ -12,6 +12,11 @@
 
 ### Pending
 
+### v5.14.0
+
+- :bug: Include the `json` payload in the Team Account request signature, CalTopo rejected the Shared Locations request with an empty body resulting in `Unexpected end of JSON input`
+- :rocket: Throw a readable error when CalTopo returns an empty or non-2xx response
+
 ### v5.13.0
 
 - :rocket: Team Account mode now surfaces only the live Shared Locations of devices reporting to the team, via the signed `/api/v1/geodata/locations` endpoint, as `a-f-G-U-C` points with stale times from the CalTopo TTL

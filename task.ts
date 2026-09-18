@@ -66,6 +66,18 @@ function sign(method: string, url: URL, creds: Static<typeof TeamSource>, payloa
     return url;
 }
 
+/**
+ * CalTopo responds to a rejected signature or unknown ID with an empty body, often with a 200 status
+ * Surface that as a readable error instead of a JSON parse failure
+ */
+function assertBody(res: { ok: boolean, status: number, headers: Headers }): void {
+    if (!res.ok) {
+        throw new Error(`CalTopo responded with HTTP ${res.status}`);
+    } else if (res.headers.get('content-length') === '0') {
+        throw new Error('CalTopo returned an empty response - check the ID & Credentials and that the credential has access');
+    }
+}
+
 const LocationOutput = Type.Object({
     title: Type.Optional(Type.String()),
     device: Type.Optional(Type.String()),
@@ -148,10 +160,13 @@ export default class Task extends ETL {
     async fetchLocations(creds: Static<typeof TeamSource>, verbose: boolean): Promise<Static<typeof Feature.InputFeature>[]> {
         console.log(`ok - requesting shared locations for ${creds.AccountId}`);
 
-        const url = sign('GET', new URL('/api/v1/geodata/locations', CALTOPO), creds);
-        url.searchParams.set('json', JSON.stringify({ bbox: null, zoom: 8 }));
+        // The signed payload must match the json parameter or CalTopo rejects the request
+        const payload = JSON.stringify({ bbox: null, zoom: 8 });
+        const url = sign('GET', new URL('/api/v1/geodata/locations', CALTOPO), creds, payload);
+        url.searchParams.set('json', payload);
 
         const res = await fetch(url);
+        assertBody(res);
         const body = await res.typed(Type.Object({
             status: Type.String(),
             timestamp: Type.Optional(Type.Integer()),
@@ -219,6 +234,7 @@ export default class Task extends ETL {
         console.log(`ok - requesting ${url.pathname}`);
 
         const res = await fetch(url);
+        assertBody(res);
         const body = await res.typed(Type.Object({
             status: Type.String(),
             timestamp: Type.Integer(),
