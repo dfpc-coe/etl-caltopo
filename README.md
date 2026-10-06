@@ -2,6 +2,27 @@
 
 <p align='center'>Bring CALTopo Maps into the TAK System</p>
 
+## Team Access Token
+
+The `Team Account` mode requires a Service Account Credential ID and Secret from CalTopo.
+You must be an admin of the CalTopo Team to create an access token.
+
+1. Login to [CalTopo](https://caltopo.com) and click your username in the top bar
+
+![Click your username](docs/team-token-1.png)
+
+2. In the popup, under Team Membership, click `Administer` for the team account you wish to configure
+
+![Click Administer](docs/team-token-2.png)
+
+3. On the Team page, click the `Details` tab
+
+![Click the Details tab](docs/team-token-3.png)
+
+4. Under Service Accounts, click `Create Service Account` and create a new Service Account with at minimum `Read` permissions
+
+![Create a Service Account](docs/team-token-4.png)
+
 ## Development
 
 DFPC provided Lambda ETLs are currently all written in [NodeJS](https://nodejs.org/en) through the use of a AWS Lambda optimized
