@@ -9,19 +9,19 @@ You must be an admin of the CalTopo Team to create an access token.
 
 1. Login to [CalTopo](https://caltopo.com) and click your username in the top bar
 
-![Click your username](docs/team-token-1.png)
+<p align='center'><img src='docs/team-token-1.png' alt='Click your username'/></p>
 
 2. In the popup, under Team Membership, click `Administer` for the team account you wish to configure
 
-![Click Administer](docs/team-token-2.png)
+<p align='center'><img src='docs/team-token-2.png' alt='Click Administer'/></p>
 
 3. On the Team page, click the `Details` tab
 
-![Click the Details tab](docs/team-token-3.png)
+<p align='center'><img src='docs/team-token-3.png' alt='Click the Details tab'/></p>
 
 4. Under Service Accounts, click `Create Service Account` and create a new Service Account with at minimum `Read` permissions
 
-![Create a Service Account](docs/team-token-4.png)
+<p align='center'><img src='docs/team-token-4.png' alt='Create a Service Account'/></p>
 
 ## Development
 
