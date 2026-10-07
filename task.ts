@@ -2,9 +2,8 @@ import { Type, TSchema, Static } from '@sinclair/typebox';
 import { Feature } from '@tak-ps/node-cot';
 import type { Event } from '@tak-ps/etl';
 import ETL, { SchemaType, handler as internal, local, DataFlowType, InvocationType } from '@tak-ps/etl';
-import { fetch } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
-import { createHmac } from 'node:crypto';
+import CalTopo, { Credentials, MapObject, MapFeature, LocationFeature, LOCATION_TTL } from './lib/caltopo.js';
 
 const MapSource = Type.Object({
     Mode: Type.Literal('Map'),
@@ -13,18 +12,21 @@ const MapSource = Type.Object({
     }),
 }, { title: 'Single Map' });
 
-const TeamSource = Type.Object({
-    Mode: Type.Literal('Team'),
-    AccountId: Type.String({
-        description: 'CalTopo Team Account ID',
+const TeamSource = Type.Composite([
+    Type.Object({
+        Mode: Type.Literal('Team'),
+        AccountId: Type.String({
+            description: 'CalTopo Team Account ID',
+        }),
     }),
-    CredentialId: Type.String({
-        description: 'Service Account Credential ID',
-    }),
-    CredentialSecret: Type.String({
-        description: 'Service Account Credential Secret',
-    }),
-}, {
+    Credentials,
+    Type.Object({
+        SinceDelta: Type.Optional(Type.Integer({
+            minimum: 1,
+            description: 'Only request locations updated within the last N seconds, leave blank to request all locations',
+        })),
+    })
+], {
     title: 'Team Account',
     description: 'Surfaces the live Shared Locations of devices reporting to the Team Account',
 });
@@ -43,77 +45,6 @@ const LegacyEnv = Type.Object({
     'DEBUG': Type.Boolean({ default: false })
 });
 
-const CALTOPO = 'https://caltopo.com/';
-// Matches the CalTopo Shared Locations overlay default expiry
-const LOCATION_TTL = 30 * 60 * 1000;
-
-/**
- * Append the CalTopo service account signature query parameters
- * Signing string is "{method} {path}\n{expires}\n{payload}" HMAC-SHA256 with the base64 decoded secret
- */
-function sign(method: string, url: URL, creds: Static<typeof TeamSource>, payload = ''): URL {
-    const expires = Date.now() + 120 * 1000;
-    const data = `${method} ${url.pathname}\n${expires}\n${payload}`;
-
-    const signature = createHmac('sha256', Buffer.from(creds.CredentialSecret, 'base64'))
-        .update(data)
-        .digest('base64');
-
-    url.searchParams.set('id', creds.CredentialId);
-    url.searchParams.set('expires', String(expires));
-    url.searchParams.set('signature', signature);
-
-    return url;
-}
-
-/**
- * CalTopo responds to requests it can't process (ie: a null bbox) with an empty body and a 200 status
- * Surface that as a readable error instead of a JSON parse failure
- */
-function assertBody(res: { ok: boolean, status: number, headers: Headers }): void {
-    if (!res.ok) {
-        throw new Error(`CalTopo responded with HTTP ${res.status}`);
-    } else if (res.headers.get('content-length') === '0') {
-        throw new Error('CalTopo returned an empty response - the request was malformed or rejected');
-    }
-}
-
-const LocationOutput = Type.Object({
-    title: Type.Optional(Type.String()),
-    device: Type.Optional(Type.String()),
-    sharedWith: Type.Optional(Type.String()),
-    type: Type.Optional(Type.String()),
-    updated: Type.Optional(Type.Number()),
-    ttl: Type.Optional(Type.Number()),
-    stroke: Type.Optional(Type.String()),
-    'aircraft:heading': Type.Optional(Type.Number()),
-});
-
-const Output = Type.Object({
-    title: Type.String(),
-    description: Type.Optional(Type.String()),
-    class: Type.String(),
-    creator: Type.String(),
-    updated: Type.Number(),
-
-    'marker-symbol': Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    'marker-rotation': Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    'marker-color': Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    'marker-size': Type.Optional(Type.Union([Type.String(), Type.Null()])),
-
-    stroke: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    'stroke-opacity': Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-    'stroke-width': Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-    pattern: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-
-    fill: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    'fill-opacity': Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-
-    folderId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    visible: Type.Optional(Type.Boolean()),
-    labelVisible: Type.Optional(Type.Boolean()),
-});
-
 export default class Task extends ETL {
     static name = 'etl-caltopo';
     static flow = [ DataFlowType.Incoming ];
@@ -127,7 +58,7 @@ export default class Task extends ETL {
             if (type === SchemaType.Input) {
                 return Env;
             } else {
-                return Output;
+                return MapObject;
             }
         } else {
             return Type.Object({});
@@ -141,9 +72,20 @@ export default class Task extends ETL {
             ? { Source: { Mode: 'Map', MapId: raw.ShareId }, DEBUG: raw.DEBUG }
             : raw;
 
-        const features = env.Source.Mode === 'Map'
-            ? await this.fetchMap(new URL(`/api/v1/map/${env.Source.MapId}/since/-500`, CALTOPO), env.DEBUG)
-            : await this.fetchLocations(env.Source, env.DEBUG);
+        const caltopo = new CalTopo({ verbose: env.DEBUG });
+
+        let features: Static<typeof Feature.InputFeature>[];
+        if (env.Source.Mode === 'Map') {
+            features = this.fromMap(await caltopo.map(env.Source.MapId));
+        } else {
+            console.log(`ok - requesting shared locations for ${env.Source.AccountId}`);
+
+            const since = env.Source.SinceDelta
+                ? Date.now() - env.Source.SinceDelta * 1000
+                : undefined;
+
+            features = this.fromLocations(await caltopo.locations(env.Source, { since }));
+        }
 
         await this.submit({
             type: 'FeatureCollection',
@@ -154,36 +96,13 @@ export default class Task extends ETL {
     }
 
     /**
-     * Fetch the Shared Locations visible to a Team Account service credential
-     * Each location is a track whose last coordinate is the current position, coords are [lng, lat, alt, time]
+     * Transform Shared Locations into CloudTAK features at each device's current position
      */
-    async fetchLocations(creds: Static<typeof TeamSource>, verbose: boolean): Promise<Static<typeof Feature.InputFeature>[]> {
-        console.log(`ok - requesting shared locations for ${creds.AccountId}`);
-
-        // CalTopo returns an empty 200 response if bbox is null, so request the whole world
-        // The signed payload must match the json parameter
-        const payload = JSON.stringify({ bbox: [-180, -90, 180, 90], zoom: 8 });
-        const url = sign('GET', new URL('/api/v1/geodata/locations', CALTOPO), creds, payload);
-        url.searchParams.set('json', payload);
-
-        const res = await fetch(url);
-        assertBody(res);
-        const body = await res.typed(Type.Object({
-            status: Type.String(),
-            timestamp: Type.Optional(Type.Integer()),
-            result: Type.Object({
-                features: Type.Array(Type.Object({
-                    id: Type.Union([Type.String(), Type.Integer()]),
-                    properties: LocationOutput,
-                    geometry: Type.Optional(Type.Any()),
-                })),
-            }),
-        }), { verbose });
-
+    fromLocations(locations: Static<typeof LocationFeature>[]): Static<typeof Feature.InputFeature>[] {
         const now = Date.now();
         const features: Static<typeof Feature.InputFeature>[] = [];
 
-        for (const loc of body.result.features) {
+        for (const loc of locations) {
             let coord: number[] | undefined;
             if (loc.geometry?.type === 'Point') {
                 coord = loc.geometry.coordinates;
@@ -229,33 +148,12 @@ export default class Task extends ETL {
     }
 
     /**
-     * Fetch a single CalTopo map and transform its objects into CloudTAK features
+     * Transform the objects of a single CalTopo map into CloudTAK features
      */
-    async fetchMap(url: URL, verbose: boolean): Promise<Static<typeof Feature.InputFeature>[]> {
-        console.log(`ok - requesting ${url.pathname}`);
+    fromMap(objects: Static<typeof MapFeature>[]): Static<typeof Feature.InputFeature>[] {
+        const folders: Map<string, Static<typeof MapObject>> = new Map();
 
-        const res = await fetch(url);
-        assertBody(res);
-        const body = await res.typed(Type.Object({
-            status: Type.String(),
-            timestamp: Type.Integer(),
-            result: Type.Object({
-                state: Type.Object({
-                    type: Type.String({ const: 'FeatureCollection' }),
-                    features: Type.Array(Type.Object({
-                        id: Type.String(),
-                        type: Type.Literal('Feature'),
-                        properties: Output,
-                        geometry: Type.Optional(Type.Any())
-                    }))
-                }),
-                timestamp: Type.Integer(),
-            }),
-        }), { verbose });
-
-        const folders: Map<string, Static<typeof Output>> = new Map();
-
-        const features: Static<typeof Feature.InputFeature>[] = body.result.state.features
+        return objects
             .filter((feat) => {
                 if (feat.properties.class === 'Folder') {
                     folders.set(feat.id, feat.properties);
@@ -316,8 +214,6 @@ export default class Task extends ETL {
 
                 return feat;
             });
-
-        return features;
     }
 }
 
@@ -325,4 +221,3 @@ await local(await Task.init(import.meta.url), import.meta.url);
 export async function handler(event: Event = {}) {
     return await internal(await Task.init(import.meta.url), event);
 }
-

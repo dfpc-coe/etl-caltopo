@@ -12,6 +12,11 @@
 
 ### Pending
 
+### v5.15.0
+
+- :tada: Add optional `SinceDelta` to the Team Account source to request only locations updated within the last N seconds via the `since` parameter
+- :rocket: Move CalTopo API client, signing, and response schemas into `lib/caltopo.ts`
+
 ### v5.14.1
 
 - :bug: Request Shared Locations with a world `bbox`, CalTopo returns an empty `200` response for a `null` bbox resulting in `Unexpected end of JSON input`

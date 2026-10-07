@@ -11,6 +11,7 @@
 		"skipLibCheck": true
 	},
 	"include": [
-		"task.ts"
+		"task.ts",
+		"lib/**/*.ts"
 	]
 }

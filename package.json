@@ -6,7 +6,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "lint": "eslint *.ts",
+        "lint": "eslint *.ts lib/*.ts",
         "build": "tsc --build",
         "test": "exit 0"
     },
