@@ -6,9 +6,9 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "lint": "eslint *.ts lib/*.ts",
+        "lint": "eslint *.ts lib test",
         "build": "tsc --build",
-        "test": "exit 0"
+        "test": "tsx --test test/*.test.ts"
     },
     "author": "Nick Ingalls <nick@ingalls.ca>",
     "license": "ISC",
@@ -16,10 +16,11 @@
         "node": ">= 24"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.0",
         "eslint": "^10.0.0",
+        "tsx": "^4.23.15",
         "typescript": "^6.0.0",
-        "typescript-eslint": "^8.58.1",
-        "@eslint/js": "^10.0.0"
+        "typescript-eslint": "^8.58.1"
     },
     "dependencies": {
         "@sinclair/typebox": "^0.34.0",

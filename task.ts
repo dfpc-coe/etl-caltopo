@@ -72,7 +72,7 @@ export default class Task extends ETL {
             ? { Source: { Mode: 'Map', MapId: raw.ShareId }, DEBUG: raw.DEBUG }
             : raw;
 
-        const caltopo = new CalTopo({ verbose: env.DEBUG });
+        const caltopo = this.client(env.DEBUG);
 
         let features: Static<typeof Feature.InputFeature>[];
         if (env.Source.Mode === 'Map') {
@@ -93,6 +93,10 @@ export default class Task extends ETL {
         }, {
             verbose: env.DEBUG
         });
+    }
+
+    client(verbose: boolean): CalTopo {
+        return new CalTopo({ verbose });
     }
 
     /**

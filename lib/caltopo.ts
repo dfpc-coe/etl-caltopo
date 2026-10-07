@@ -86,9 +86,11 @@ const MapResponse = Type.Object({
 });
 
 export default class CalTopo {
+    url: URL;
     verbose: boolean;
 
-    constructor(opts: { verbose?: boolean } = {}) {
+    constructor(opts: { url?: string, verbose?: boolean } = {}) {
+        this.url = new URL(opts.url ?? API);
         this.verbose = opts.verbose ?? false;
     }
 
@@ -115,7 +117,7 @@ export default class CalTopo {
      * CalTopo responds to requests it can't process (ie: a null bbox) with an empty body and a 200 status
      * Surface that as a readable error instead of a JSON parse failure
      */
-    static assertBody(res: { ok: boolean, status: number, headers: Headers }): void {
+    static assertBody(res: { ok: boolean, status: number, headers: { get(name: string): string | null } }): void {
         if (!res.ok) {
             throw new Error(`CalTopo responded with HTTP ${res.status}`);
         } else if (res.headers.get('content-length') === '0') {
@@ -139,12 +141,12 @@ export default class CalTopo {
         if (opts.since !== undefined) query.since = opts.since;
         const payload = JSON.stringify(query);
 
-        const url = CalTopo.sign('GET', new URL('/api/v1/geodata/locations', API), creds, payload);
+        const url = CalTopo.sign('GET', new URL('/api/v1/geodata/locations', this.url), creds, payload);
         url.searchParams.set('json', payload);
 
         console.log(`ok - requesting ${url.pathname}`);
 
-        const res = await fetch(url);
+        const res = await fetch(url, { safeUrlAllow: [this.url.origin] });
         CalTopo.assertBody(res);
         const body = await res.typed(LocationsResponse, { verbose: this.verbose });
 
@@ -155,11 +157,11 @@ export default class CalTopo {
      * Fetch the objects of a single public Map or Share ID
      */
     async map(id: string): Promise<Static<typeof MapFeature>[]> {
-        const url = new URL(`/api/v1/map/${id}/since/-500`, API);
+        const url = new URL(`/api/v1/map/${id}/since/-500`, this.url);
 
         console.log(`ok - requesting ${url.pathname}`);
 
-        const res = await fetch(url);
+        const res = await fetch(url, { safeUrlAllow: [this.url.origin] });
         CalTopo.assertBody(res);
         const body = await res.typed(MapResponse, { verbose: this.verbose });
 

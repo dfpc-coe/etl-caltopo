@@ -12,10 +12,15 @@
 
 ### Pending
 
+### v5.15.1
+
+- :bug: Fix TS build error
+
 ### v5.15.0
 
 - :tada: Add optional `SinceDelta` to the Team Account source to request only locations updated within the last N seconds via the `since` parameter
 - :rocket: Move CalTopo API client, signing, and response schemas into `lib/caltopo.ts`
+- :white_check_mark: Add unit tests for the API client, feature transforms, and `since` handling
 
 ### v5.14.1
 
