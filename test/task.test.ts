@@ -232,14 +232,14 @@ const EVENT = {
 
 const CREATE = { type: 'event', action: 'create', channels: [1], data: EVENT };
 
-const OUTGOING = { AccountId: 'TEAM1', ...CREDS, MapMode: 'sar', MapSharing: 'SECRET', MapLayers: [{ layer: 'mbt' }], MarkerColor: 'FF0000', DEBUG: false };
+const OUTGOING = { AccountId: 'SVC1', TeamId: 'TEAM1', ...CREDS, MapMode: 'sar', MapSharing: 'SECRET', MapLayers: [{ layer: 'mbt' }], MarkerColor: 'FF0000', DEBUG: false };
 
 test('Outgoing schema - Team Account, credentials & map defaults', async () => {
     const task = await Task.init();
     const schema = await task.schema(SchemaType.Input, DataFlowType.Outgoing);
 
-    assert.deepEqual(Object.keys(schema.properties), ['AccountId', 'CredentialId', 'CredentialSecret', 'MapMode', 'MapSharing', 'MapLayers', 'MarkerColor', 'DEBUG']);
-    assert.deepEqual(schema.required, ['AccountId', 'CredentialId', 'CredentialSecret', 'MapMode', 'MapSharing', 'MapLayers', 'MarkerColor', 'DEBUG']);
+    assert.deepEqual(Object.keys(schema.properties), ['AccountId', 'TeamId', 'CredentialId', 'CredentialSecret', 'MapMode', 'MapSharing', 'MapLayers', 'MarkerColor', 'DEBUG']);
+    assert.deepEqual(schema.required, ['AccountId', 'TeamId', 'CredentialId', 'CredentialSecret', 'MapMode', 'MapSharing', 'MapLayers', 'MarkerColor', 'DEBUG']);
     assert.equal(schema.properties.MapMode.default, 'sar');
     assert.deepEqual(schema.properties.MapMode.enum, ['sar', 'cal']);
     assert.equal(schema.properties.MapSharing.default, 'SECRET');

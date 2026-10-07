@@ -21,7 +21,8 @@ message) never gets a second Map. Unless the Map is `PRIVATE`, its URL is also a
 
 | Variable           | Default               | Description                                                                                 |
 | ------------------ | --------------------- | ------------------------------------------------------------------------------------------- |
-| `AccountId`        |                       | CalTopo Team Account ID the Maps are created in (`https://caltopo.com/group/{AccountId}/admin/details`) |
+| `AccountId`        |                       | Service Account ID the credentials belong to                                                |
+| `TeamId`           |                       | Team ID the Maps are created in, from the Team admin page URL `https://caltopo.com/group/{TeamId}/admin/details` |
 | `CredentialId`     |                       | Service Account Credential ID                                                               |
 | `CredentialSecret` |                       | Service Account Credential Secret                                                           |
 | `MapMode`          | `sar`                 | `sar` (Search & Rescue) or `cal` (Recreational)                                             |
@@ -32,6 +33,9 @@ message) never gets a second Map. Unless the Map is `PRIVATE`, its URL is also a
 
 
 ## Team Access Token
+
+A Service Account has its own Account ID, a Credential ID and a Credential Secret. The Team it belongs to has a separate
+Team ID, visible in the URL of the Team admin page - the Outgoing flow needs both.
 
 The `Team Account` mode requires a Service Account Credential ID and Secret from CalTopo.
 You must be an admin of the CalTopo Team to create an access token.

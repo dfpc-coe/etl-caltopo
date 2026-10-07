@@ -19,16 +19,17 @@ test('sign - appends id, expiry & HMAC over method, path, expiry and payload', (
     assert.equal(url.searchParams.get('signature'), expected);
 });
 
-test('assertBody - surfaces HTTP errors and empty 200 bodies', () => {
-    assert.throws(() => {
-        CalTopo.assertBody({ ok: false, status: 401, headers: new Headers() });
-    }, /HTTP 401/);
+test('assertBody - surfaces HTTP errors with their body and empty 200 bodies', async () => {
+    await assert.rejects(
+        CalTopo.assertBody(new Response('{"status":"error","message":"permission denied"}', { status: 403 })),
+        /HTTP 403: \{"status":"error","message":"permission denied"\}/
+    );
 
-    assert.throws(() => {
-        CalTopo.assertBody({ ok: true, status: 200, headers: new Headers({ 'content-length': '0' }) });
-    }, /empty response/);
+    await assert.rejects(CalTopo.assertBody(new Response(null, { status: 401 })), /HTTP 401$/);
 
-    CalTopo.assertBody({ ok: true, status: 200, headers: new Headers({ 'content-length': '12' }) });
+    await assert.rejects(CalTopo.assertBody(new Response('', { status: 200, headers: { 'content-length': '0' } })), /empty response/);
+
+    await CalTopo.assertBody(new Response('{"status":"ok"}', { status: 200, headers: { 'content-length': '15' } }));
 });
 
 test('locations - signed world bbox request, since only when provided', async () => {
@@ -114,8 +115,30 @@ test('createMap - signed form POST to the Team Account returns the new Map ID', 
         assert.equal(api.requests.length, 1);
         assert.equal(api.requests[0].method, 'POST');
         assert.equal(api.requests[0].pathname, '/api/v1/acct/TEAM1/CollaborativeMap');
-        assert.equal((api.requests[0].json?.properties as Record<string, unknown>).title, 'Lost Hiker');
-        assert.equal((api.requests[0].json?.properties as Record<string, unknown>).sharing, 'SECRET');
+        assert.deepEqual(api.requests[0].json?.properties, {
+            class: 'CollaborativeMap',
+            accountId: 'TEAM1',
+            folderId: null,
+            locked: false,
+            title: 'Lost Hiker',
+            mode: 'sar',
+            mapConfig: JSON.stringify({ activeLayers: [['mbt', 1]] }),
+            sharing: 'SECRET'
+        });
+    } finally {
+        await api.close();
+    }
+});
+
+test('createMap - a 403 carries the CalTopo message', async () => {
+    const api = await mock();
+
+    try {
+        const caltopo = new CalTopo({ url: api.base });
+        await assert.rejects(caltopo.createMap('READONLY', CREDS, {
+            properties: { title: 'x', mode: MapMode.SAR, mapConfig: '{}', sharing: MapSharing.SECRET },
+            state: { type: 'FeatureCollection', features: [] }
+        }), /HTTP 403: .*lacks UPDATE permission/);
     } finally {
         await api.close();
     }

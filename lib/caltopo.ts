@@ -91,7 +91,9 @@ export const NewMap = Type.Object({
         title: Type.String(),
         mode: Type.Enum(MapMode),
         mapConfig: Type.String({ description: 'JSON encoded {"activeLayers": [["mbt", 1]]}' }),
-        sharing: Type.Enum(MapSharing)
+        sharing: Type.Enum(MapSharing),
+        folderId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+        locked: Type.Optional(Type.Boolean())
     }),
     state: Type.Object({
         type: Type.Literal('FeatureCollection'),
@@ -172,9 +174,10 @@ export default class CalTopo {
      * CalTopo responds to requests it can't process (ie: a null bbox) with an empty body and a 200 status
      * Surface that as a readable error instead of a JSON parse failure
      */
-    static assertBody(res: { ok: boolean, status: number, headers: { get(name: string): string | null } }): void {
+    static async assertBody(res: { ok: boolean, status: number, headers: { get(name: string): string | null }, text(): Promise<string> }): Promise<void> {
         if (!res.ok) {
-            throw new Error(`CalTopo responded with HTTP ${res.status}`);
+            const body = await res.text().catch(() => '');
+            throw new Error(`CalTopo responded with HTTP ${res.status}${body ? `: ${body.trim().slice(0, 500)}` : ''}`);
         } else if (res.headers.get('content-length') === '0') {
             throw new Error('CalTopo returned an empty response - the request was malformed or rejected');
         }
@@ -202,7 +205,7 @@ export default class CalTopo {
         console.log(`ok - requesting ${url.pathname}`);
 
         const res = await fetch(url, { safeUrlAllow: [this.url.origin] });
-        CalTopo.assertBody(res);
+        await CalTopo.assertBody(res);
         const body = await res.typed(LocationsResponse, { verbose: this.verbose });
 
         return body.result.features;
@@ -217,7 +220,7 @@ export default class CalTopo {
         console.log(`ok - requesting ${url.pathname}`);
 
         const res = await fetch(url, { safeUrlAllow: [this.url.origin] });
-        CalTopo.assertBody(res);
+        await CalTopo.assertBody(res);
         const body = await res.typed(MapResponse, { verbose: this.verbose });
 
         return body.result.state.features;
@@ -227,14 +230,25 @@ export default class CalTopo {
      * Create a Collaborative Map in a Team Account, returning the new Map ID
      * Signed POST requests carry the signature parameters and json payload as a form encoded body
      * The service account requires at least UPDATE permission
+     *
+     * The CalTopo UI sends the object class & owning Team as accountId in the properties, so they are set here too
      */
     async createMap(
-        accountId: string,
+        teamId: string,
         creds: Static<typeof Credentials>,
         map: Static<typeof NewMap>
     ): Promise<string> {
-        const url = new URL(`/api/v1/acct/${accountId}/CollaborativeMap`, this.url);
-        const payload = JSON.stringify(map);
+        const url = new URL(`/api/v1/acct/${teamId}/CollaborativeMap`, this.url);
+        const payload = JSON.stringify({
+            ...map,
+            properties: {
+                class: 'CollaborativeMap',
+                accountId: teamId,
+                folderId: null,
+                locked: false,
+                ...map.properties
+            }
+        });
 
         const body = new URLSearchParams(CalTopo.signature('POST', url, creds, payload));
         body.set('json', payload);
@@ -247,7 +261,7 @@ export default class CalTopo {
             body: body.toString(),
             safeUrlAllow: [this.url.origin]
         });
-        CalTopo.assertBody(res);
+        await CalTopo.assertBody(res);
         const created = await res.typed(CreateMapResponse, { verbose: this.verbose });
 
         return created.result.id;

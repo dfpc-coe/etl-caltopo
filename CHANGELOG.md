@@ -15,9 +15,10 @@
 ### v5.16.0
 
 - :tada: Add an optional Outgoing flow (`event:create`) that creates a CalTopo Map in a Team Account for every CoreEvent, titled after the Event callsign with a Marker carrying its remarks & location
-- :tada: Add `MapMode`, `MapSharing`, `MapLayers` & `MarkerColor` Outgoing environment variables for the mode, configuration and default sharing of created Maps
+- :tada: Add `TeamId` (the Team the Maps are created in - distinct from the Service Account ID), `MapMode`, `MapSharing`, `MapLayers` & `MarkerColor` Outgoing environment variables
 - :rocket: The created Map ID is filed under the `caltopo` external ID of the CoreEvent (CloudTAK 13.106+) which is what prevents a redelivered message creating a second Map, and the Map URL is added to the Event Links unless the Map is `PRIVATE`
 - :rocket: Add `CalTopo.createMap` & `CalTopo.signature` for signed form encoded `POST` requests
+- :rocket: Non-2xx CalTopo responses include the response body in the error so a 403 says why
 - :white_check_mark: Add unit tests for Map creation and the Outgoing flow
 
 ### v5.15.1

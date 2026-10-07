@@ -49,7 +49,10 @@ const LegacyEnv = Type.Object({
 const OutgoingEnv = Type.Composite([
     Type.Object({
         AccountId: Type.String({
-            description: 'CalTopo Team Account ID the Maps are created in',
+            description: 'CalTopo Service Account ID the credentials belong to',
+        }),
+        TeamId: Type.String({
+            description: 'CalTopo Team ID the Maps are created in - from the Team admin page URL https://caltopo.com/group/{TeamId}/admin/details - the Service Account must have at least Update permissions on the Team',
         }),
     }),
     Credentials,
@@ -158,7 +161,7 @@ export default class Task extends ETL {
             const map = this.mapFromEvent(core, env);
             if (env.DEBUG) console.log(`ok - creating map "${map.properties.title}" for event ${core.id}`);
 
-            const id = await caltopo.createMap(env.AccountId, env, map);
+            const id = await caltopo.createMap(env.TeamId, env, map);
             console.log(`ok - created map ${id} for event ${core.id}`);
 
             await this.record(core, id, caltopo.mapUrl(id), env.MapSharing);

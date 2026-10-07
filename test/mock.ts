@@ -63,6 +63,8 @@ export async function mock(opts: {
                 return send(400, { status: 'error', message: 'expected a form body' });
             } else if (!signed('POST', url.pathname, params)) {
                 return send(401, { status: 'error', message: 'bad signature' });
+            } else if (create[1] === 'READONLY') {
+                return send(403, { status: 'error', message: 'service account lacks UPDATE permission' });
             } else if (!json || !json.properties || !json.properties.title) {
                 return send(400, { status: 'error', message: 'missing title' });
             }
