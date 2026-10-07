@@ -1,7 +1,7 @@
 {
     "version": "1.0",
     "name": "CalTopo",
-    "description": "Ingests map objects from a shared CalTopo map, or the live Shared Locations of a CalTopo Team Account, and posts them to the map.",
+    "description": "Ingests map objects from a shared CalTopo map, or the live Shared Locations of a CalTopo Team Account, and posts them to the map. Optionally creates a CalTopo Map in a Team Account for every CoreEvent created.",
     "compute": {
         "memory": 512,
         "timeout": 60
@@ -11,6 +11,16 @@
             "resource": "feature:*",
             "required": true,
             "description": "CalTopo posts team, device, and map object locations to the map"
+        },
+        {
+            "resource": "event:read",
+            "required": false,
+            "description": "Reads a CoreEvent before creating its CalTopo Map - an Event whose caltopo external ID is set is skipped and its links are kept when the Map link is appended - required by the Outgoing flow"
+        },
+        {
+            "resource": "event:update",
+            "required": false,
+            "description": "Files the created CalTopo Map ID under the caltopo external ID of the CoreEvent and adds the Map URL to its links - required by the Outgoing flow"
         }
     ],
     "invocations": {
@@ -22,6 +32,14 @@
                     "schedule": "rate(1 minute)"
                 }
             }
+        },
+        "outgoing": {
+            "types": [
+                {
+                    "resource": "event:create",
+                    "description": "Creates a CalTopo Map in the configured Team Account titled after the CoreEvent callsign, with a Marker at the Event location carrying its remarks & location - the Map ID is filed under the caltopo external ID of the Event and, unless the Map is PRIVATE, its URL is added to the Event links"
+                }
+            ]
         }
     }
 }

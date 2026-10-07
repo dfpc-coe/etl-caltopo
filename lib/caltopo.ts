@@ -7,6 +7,18 @@ export const API = 'https://caltopo.com/';
 // Matches the CalTopo Shared Locations overlay default expiry
 export const LOCATION_TTL = 30 * 60 * 1000;
 
+export enum MapMode {
+    SAR = 'sar',
+    CAL = 'cal'
+}
+
+export enum MapSharing {
+    PRIVATE = 'PRIVATE',
+    SECRET = 'SECRET',
+    URL = 'URL',
+    PUBLIC = 'PUBLIC'
+}
+
 export const Credentials = Type.Object({
     CredentialId: Type.String({
         description: 'Service Account Credential ID',
@@ -65,6 +77,35 @@ export const MapFeature = Type.Object({
     geometry: Type.Optional(Type.Any())
 });
 
+export const NewMapFeature = Type.Object({
+    type: Type.Literal('Feature'),
+    geometry: Type.Object({
+        type: Type.Union([Type.Literal('Point'), Type.Literal('LineString'), Type.Literal('Polygon')]),
+        coordinates: Type.Any()
+    }),
+    properties: Type.Record(Type.String(), Type.Unknown())
+});
+
+export const NewMap = Type.Object({
+    properties: Type.Object({
+        title: Type.String(),
+        mode: Type.Enum(MapMode),
+        mapConfig: Type.String({ description: 'JSON encoded {"activeLayers": [["mbt", 1]]}' }),
+        sharing: Type.Enum(MapSharing)
+    }),
+    state: Type.Object({
+        type: Type.Literal('FeatureCollection'),
+        features: Type.Array(NewMapFeature)
+    })
+});
+
+const CreateMapResponse = Type.Object({
+    status: Type.String(),
+    result: Type.Object({
+        id: Type.String()
+    })
+});
+
 const LocationsResponse = Type.Object({
     status: Type.String(),
     timestamp: Type.Optional(Type.Integer()),
@@ -95,10 +136,10 @@ export default class CalTopo {
     }
 
     /**
-     * Append the CalTopo service account signature query parameters
+     * CalTopo service account signature parameters
      * Signing string is "{method} {path}\n{expires}\n{payload}" HMAC-SHA256 with the base64 decoded secret
      */
-    static sign(method: string, url: URL, creds: Static<typeof Credentials>, payload = ''): URL {
+    static signature(method: string, url: URL, creds: Static<typeof Credentials>, payload = ''): { id: string, expires: string, signature: string } {
         const expires = Date.now() + 120 * 1000;
         const data = `${method} ${url.pathname}\n${expires}\n${payload}`;
 
@@ -106,11 +147,25 @@ export default class CalTopo {
             .update(data)
             .digest('base64');
 
-        url.searchParams.set('id', creds.CredentialId);
-        url.searchParams.set('expires', String(expires));
-        url.searchParams.set('signature', signature);
+        return { id: creds.CredentialId, expires: String(expires), signature };
+    }
+
+    /**
+     * Append the signature query parameters used by GET requests
+     */
+    static sign(method: string, url: URL, creds: Static<typeof Credentials>, payload = ''): URL {
+        for (const [key, value] of Object.entries(CalTopo.signature(method, url, creds, payload))) {
+            url.searchParams.set(key, value);
+        }
 
         return url;
+    }
+
+    /**
+     * Browser URL of a Map
+     */
+    mapUrl(id: string): string {
+        return new URL(`/m/${id}`, this.url).toString();
     }
 
     /**
@@ -166,5 +221,35 @@ export default class CalTopo {
         const body = await res.typed(MapResponse, { verbose: this.verbose });
 
         return body.result.state.features;
+    }
+
+    /**
+     * Create a Collaborative Map in a Team Account, returning the new Map ID
+     * Signed POST requests carry the signature parameters and json payload as a form encoded body
+     * The service account requires at least UPDATE permission
+     */
+    async createMap(
+        accountId: string,
+        creds: Static<typeof Credentials>,
+        map: Static<typeof NewMap>
+    ): Promise<string> {
+        const url = new URL(`/api/v1/acct/${accountId}/CollaborativeMap`, this.url);
+        const payload = JSON.stringify(map);
+
+        const body = new URLSearchParams(CalTopo.signature('POST', url, creds, payload));
+        body.set('json', payload);
+
+        console.log(`ok - requesting POST ${url.pathname}`);
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+            safeUrlAllow: [this.url.origin]
+        });
+        CalTopo.assertBody(res);
+        const created = await res.typed(CreateMapResponse, { verbose: this.verbose });
+
+        return created.result.id;
     }
 }

@@ -1,9 +1,10 @@
 import { Type, TSchema, Static } from '@sinclair/typebox';
+import type Lambda from 'aws-lambda';
 import { Feature } from '@tak-ps/node-cot';
 import type { Event } from '@tak-ps/etl';
-import ETL, { SchemaType, handler as internal, local, DataFlowType, InvocationType } from '@tak-ps/etl';
+import ETL, { SchemaType, handler as internal, local, DataFlowType, InvocationType, OutgoingMessageType, OutgoingAction } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
-import CalTopo, { Credentials, MapObject, MapFeature, LocationFeature, LOCATION_TTL } from './lib/caltopo.js';
+import CalTopo, { Credentials, MapObject, MapFeature, LocationFeature, NewMap, MapMode, MapSharing, LOCATION_TTL } from './lib/caltopo.js';
 
 const MapSource = Type.Object({
     Mode: Type.Literal('Map'),
@@ -45,9 +46,70 @@ const LegacyEnv = Type.Object({
     'DEBUG': Type.Boolean({ default: false })
 });
 
+const OutgoingEnv = Type.Composite([
+    Type.Object({
+        AccountId: Type.String({
+            description: 'CalTopo Team Account ID the Maps are created in',
+        }),
+    }),
+    Credentials,
+    Type.Object({
+        // Declared with enum rather than Type.Enum so the Layer environment UI renders a select
+        MapMode: Type.Unsafe<MapMode>(Type.String({
+            enum: Object.values(MapMode),
+            default: MapMode.SAR,
+            description: 'Mode of created Maps - sar (Search & Rescue) or cal (Recreational)'
+        })),
+        MapSharing: Type.Unsafe<MapSharing>(Type.String({
+            enum: Object.values(MapSharing),
+            default: MapSharing.SECRET,
+            description: 'Default sharing of created Maps - PRIVATE (creator only), SECRET (secret URL), URL (public URL) or PUBLIC'
+        })),
+        MapLayers: Type.Array(Type.Object({
+            layer: Type.String({ description: 'CalTopo layer ID - ie: mbt (MapBuilder Topo), mbh (MapBuilder Hybrid) or imagery' })
+        }), {
+            default: [{ layer: 'mbt' }],
+            description: 'Active base layers of created Maps'
+        }),
+        MarkerColor: Type.String({
+            default: 'FF0000',
+            description: 'Hex colour (without #) of the Marker placed at the CoreEvent location'
+        }),
+        'DEBUG': Type.Boolean({
+            default: false,
+            description: 'Print results in logs'
+        })
+    })
+], {
+    description: 'Creates a CalTopo Map in the Team Account for every CoreEvent created - the Map ID is filed under the caltopo external ID of the Event, which requires the event:read & event:update permissions'
+});
+
+/** The CoreEvent external ID system the created Map ID is filed under */
+export const EXTERNAL_SYSTEM = 'caltopo';
+
+// Subset of CloudTAK's CoreEventResponse carried by event:<action> messages
+export const CoreEvent = Type.Object({
+    id: Type.String(),
+    name: Type.String(),
+    remarks: Type.Optional(Type.String()),
+    location: Type.Optional(Type.String()),
+    external_ids: Type.Optional(Type.Record(Type.String(), Type.String())),
+    links: Type.Optional(Type.Array(Type.Object({
+        name: Type.String(),
+        url: Type.String()
+    }))),
+    geometry: Type.Object({
+        type: Type.Literal('Point'),
+        coordinates: Type.Array(Type.Number())
+    })
+});
+
+export type CoreEvent = Static<typeof CoreEvent>;
+export type OutgoingEnv = Static<typeof OutgoingEnv>;
+
 export default class Task extends ETL {
     static name = 'etl-caltopo';
-    static flow = [ DataFlowType.Incoming ];
+    static flow = [ DataFlowType.Incoming, DataFlowType.Outgoing ];
     static invocation = [ InvocationType.Schedule ];
 
     async schema(
@@ -60,8 +122,122 @@ export default class Task extends ETL {
             } else {
                 return MapObject;
             }
+        } else if (type === SchemaType.Input) {
+            return OutgoingEnv;
         } else {
             return Type.Object({});
+        }
+    }
+
+    /**
+     * event:create - a created CoreEvent becomes a new CalTopo Map in the Team Account
+     * with a Marker at the Event location carrying its callsign, remarks & location
+     *
+     * The Map ID is filed under the caltopo external ID of the Event, so an Event that
+     * already has one (ie: a redelivered message) never gets a second Map
+     */
+    async outgoing(event: Lambda.SQSEvent): Promise<boolean> {
+        const env = await this.env(OutgoingEnv, DataFlowType.Outgoing);
+        const caltopo = this.client(env.DEBUG);
+
+        for (const message of Task.outgoingMessages(event)) {
+            if (message.type !== OutgoingMessageType.Event || message.action !== OutgoingAction.Create) {
+                if (env.DEBUG) console.log(`ok - skip - ${message.type}:${'action' in message ? message.action : '*'} is not an event:create`);
+                continue;
+            }
+
+            // The message is a snapshot from creation time - read the Event back so a redelivery sees the Map ID
+            const core = await this.coreEvent(this.type(CoreEvent, message.data).id);
+
+            const known = core.external_ids?.[EXTERNAL_SYSTEM];
+            if (known) {
+                console.log(`ok - skip - event ${core.id} already has map ${known}`);
+                continue;
+            }
+
+            const map = this.mapFromEvent(core, env);
+            if (env.DEBUG) console.log(`ok - creating map "${map.properties.title}" for event ${core.id}`);
+
+            const id = await caltopo.createMap(env.AccountId, env, map);
+            console.log(`ok - created map ${id} for event ${core.id}`);
+
+            await this.record(core, id, caltopo.mapUrl(id), env.MapSharing);
+        }
+
+        return true;
+    }
+
+    /** The current state of a CoreEvent - the Layer needs the event:read permission */
+    async coreEvent(id: string): Promise<CoreEvent> {
+        try {
+            return this.type(CoreEvent, await this.fetch(`/api/core/event/${id}`));
+        } catch (err) {
+            throw new Error(`Failed to read CoreEvent ${id} - the Layer requires the event:read permission: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+        }
+    }
+
+    /**
+     * Map titled after the CoreEvent callsign with a single Marker at its location
+     */
+    mapFromEvent(core: CoreEvent, env: OutgoingEnv): Static<typeof NewMap> {
+        const description = [
+            core.remarks,
+            core.location ? `Location: ${core.location}` : ''
+        ].filter(Boolean).join('\n\n');
+
+        return {
+            properties: {
+                title: core.name,
+                mode: env.MapMode,
+                mapConfig: JSON.stringify({
+                    activeLayers: env.MapLayers.map((l) => [l.layer, 1])
+                }),
+                sharing: env.MapSharing
+            },
+            state: {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: core.geometry.coordinates.slice(0, 2)
+                    },
+                    properties: {
+                        title: core.name,
+                        description,
+                        'marker-symbol': 'point',
+                        'marker-color': env.MarkerColor.replace(/^#/, ''),
+                        'marker-size': '1'
+                    }
+                }]
+            }
+        };
+    }
+
+    /**
+     * File the Map ID under the caltopo external ID of the Event and, when the Map is
+     * reachable by URL (any sharing but PRIVATE), add that URL to the Event links.
+     * PATCH replaces the links array, so the current links are re-sent with the Map appended.
+     * A failure is logged rather than thrown - a retry would create a second Map
+     */
+    async record(core: CoreEvent, id: string, url: string, sharing: MapSharing): Promise<void> {
+        const body: Record<string, unknown> = {
+            external_id: { system: EXTERNAL_SYSTEM, value: id }
+        };
+
+        const links = core.links || [];
+        if (sharing !== MapSharing.PRIVATE && !links.some((l) => l.url === url)) {
+            body.links = [...links, { name: 'CalTopo Map', url }];
+        }
+
+        try {
+            await this.fetch(`/api/core/event/${core.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        } catch (err) {
+            console.error(`not ok - failed to record map ${id} on CoreEvent ${core.id} - the Layer requires the event:update permission:`, err);
         }
     }
 

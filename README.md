@@ -2,6 +2,35 @@
 
 <p align='center'>Bring CALTopo Maps into the TAK System</p>
 
+## Modes
+
+The Layer supports two independent data flows, the Outgoing flow is off unless configured.
+
+- **Incoming** (Schedule) - Ingests the objects of a single shared CalTopo Map, or the live Shared Locations of a CalTopo Team Account
+- **Outgoing** (`event:create`) - Creates a new CalTopo Map in a Team Account every time a CoreEvent is created and shared with the Layer Connection
+
+## Outgoing - CoreEvent to CalTopo Map
+
+Enable the Outgoing flow of the Layer and subscribe it to `event:create`. The Service Account requires at minimum `Update`
+permissions on the Team (see Team Access Token below) and the Layer requires the `event:read` & `event:update` permissions.
+Each created Map is titled after the CoreEvent callsign and contains a single Marker at the Event location whose description
+carries the Event remarks and human readable location.
+
+The Map ID is filed under the `caltopo` external ID of the CoreEvent, so an Event that already has one (ie: a redelivered
+message) never gets a second Map. Unless the Map is `PRIVATE`, its URL is also added to the Links of the CoreEvent.
+
+| Variable           | Default               | Description                                                                                 |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------------------- |
+| `AccountId`        |                       | CalTopo Team Account ID the Maps are created in (`https://caltopo.com/group/{AccountId}/admin/details`) |
+| `CredentialId`     |                       | Service Account Credential ID                                                               |
+| `CredentialSecret` |                       | Service Account Credential Secret                                                           |
+| `MapMode`          | `sar`                 | `sar` (Search & Rescue) or `cal` (Recreational)                                             |
+| `MapSharing`       | `SECRET`              | `PRIVATE` (creator only), `SECRET` (secret URL), `URL` (public URL) or `PUBLIC`             |
+| `MapLayers`        | `[{ "layer": "mbt" }]` | Active base layers - ie: `mbt` (MapBuilder Topo), `mbh` (MapBuilder Hybrid), `imagery`     |
+| `MarkerColor`      | `FF0000`              | Hex colour of the Marker placed at the Event location                                       |
+| `DEBUG`            | `false`               | Print results in logs                                                                       |
+
+
 ## Team Access Token
 
 The `Team Account` mode requires a Service Account Credential ID and Secret from CalTopo.
@@ -20,6 +49,7 @@ You must be an admin of the CalTopo Team to create an access token.
     <p align='center'><img src='docs/team-token-3.png' alt='Click the Details tab'/></p>
 
 4. Under Service Accounts, click `Create Service Account` and create a new Service Account with at minimum `Read` permissions
+   (`Update` permissions are required for the Outgoing flow to create Maps)
 
     <p align='center'><img src='docs/team-token-4.png' alt='Create a Service Account'/></p>
 

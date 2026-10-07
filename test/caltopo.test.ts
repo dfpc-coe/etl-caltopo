@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { createHmac } from 'node:crypto';
-import CalTopo, { API } from '../lib/caltopo.js';
+import CalTopo, { API, MapMode, MapSharing } from '../lib/caltopo.js';
 import { mock, CREDS } from './mock.js';
 
 test('sign - appends id, expiry & HMAC over method, path, expiry and payload', () => {
@@ -80,6 +80,56 @@ test('map - fetches the public map state', async () => {
         assert.equal(api.requests[0].pathname, '/api/v1/map/SHARE1/since/-500');
         assert.equal(features.length, 1);
         assert.equal(features[0].properties.title, 'Marker');
+    } finally {
+        await api.close();
+    }
+});
+
+test('createMap - signed form POST to the Team Account returns the new Map ID', async () => {
+    const api = await mock({ mapId: 'ABC123' });
+
+    try {
+        const caltopo = new CalTopo({ url: api.base });
+
+        const id = await caltopo.createMap('TEAM1', CREDS, {
+            properties: {
+                title: 'Lost Hiker',
+                mode: MapMode.SAR,
+                mapConfig: JSON.stringify({ activeLayers: [['mbt', 1]] }),
+                sharing: MapSharing.SECRET
+            },
+            state: {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [-105, 39] },
+                    properties: { title: 'Lost Hiker', 'marker-color': 'FF0000' }
+                }]
+            }
+        });
+
+        assert.equal(id, 'ABC123');
+        assert.equal(caltopo.mapUrl(id), `${api.base}/m/ABC123`);
+
+        assert.equal(api.requests.length, 1);
+        assert.equal(api.requests[0].method, 'POST');
+        assert.equal(api.requests[0].pathname, '/api/v1/acct/TEAM1/CollaborativeMap');
+        assert.equal((api.requests[0].json?.properties as Record<string, unknown>).title, 'Lost Hiker');
+        assert.equal((api.requests[0].json?.properties as Record<string, unknown>).sharing, 'SECRET');
+    } finally {
+        await api.close();
+    }
+});
+
+test('createMap - rejected signature is a readable error', async () => {
+    const api = await mock();
+
+    try {
+        const caltopo = new CalTopo({ url: api.base });
+        await assert.rejects(caltopo.createMap('TEAM1', { ...CREDS, CredentialSecret: Buffer.from('wrong').toString('base64') }, {
+            properties: { title: 'x', mode: MapMode.CAL, mapConfig: '{}', sharing: MapSharing.PRIVATE },
+            state: { type: 'FeatureCollection', features: [] }
+        }), /HTTP 401/);
     } finally {
         await api.close();
     }
