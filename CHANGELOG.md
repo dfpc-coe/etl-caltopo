@@ -12,6 +12,10 @@
 
 ### Pending
 
+### v5.16.1
+
+- :bug: Add CalTopo TeamID for Map Creation Requests
+
 ### v5.16.0
 
 - :tada: Add an optional Outgoing flow (`event:create`) that creates a CalTopo Map in a Team Account for every CoreEvent, titled after the Event callsign with a Marker carrying its remarks & location
