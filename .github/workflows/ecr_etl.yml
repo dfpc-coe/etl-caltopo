@@ -36,14 +36,11 @@ jobs:
           role-session-name: GithubECRBuilder
           aws-region: ${{secrets.AWS_REGION}}
 
-      - name: Build & Push ETL to Prod (COTAK & WFTAK)
+      - name: Build & Push ETL to Prod (COTAK)
         env:
           AWS_ACCOUNT_ID: ${{secrets.AWS_ACCOUNT_ID}}
           AWS_REGION: ${{secrets.AWS_REGION}}
-        run: |
-          for environment in cotak-prod wftak-prod; do
-            Environment="$environment" cloudtak-etl
-          done
+        run: Environment="cotak-prod" cloudtak-etl
 
       - name: Configure AWS Credentials (Staging)
         uses: aws-actions/configure-aws-credentials@v6
@@ -52,11 +49,8 @@ jobs:
           role-session-name: GithubECRBuilder
           aws-region: ${{secrets.AWS_STAGING_REGION}}
 
-      - name: Build & Push ETL to Staging (COTAK & WFTAK)
+      - name: Build & Push ETL to Staging (COTAK)
         env:
           AWS_ACCOUNT_ID: ${{secrets.AWS_STAGING_ACCOUNT_ID}}
           AWS_REGION: ${{secrets.AWS_STAGING_REGION}}
-        run: |
-          for environment in cotak-staging wftak-staging; do
-            Environment="$environment" cloudtak-etl
-          done
+        run: Environment="cotak-staging" cloudtak-etl
