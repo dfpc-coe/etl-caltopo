@@ -6,7 +6,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "lint": "eslint *.ts lib test",
+        "lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
         "build": "tsc --build",
         "test": "tsx --test test/*.test.ts"
     },
@@ -16,16 +16,15 @@
         "node": ">= 24"
     },
     "devDependencies": {
-        "@eslint/js": "^10.0.0",
-        "eslint": "^10.0.0",
+        "oxlint": "^1.94.0",
+        "oxlint-tsgolint": "^7.0.2007",
         "tsx": "^4.23.15",
-        "typescript": "^6.0.0",
-        "typescript-eslint": "^8.58.1"
+        "typescript": "^7.0.2"
     },
     "dependencies": {
-        "@sinclair/typebox": "^0.34.0",
-        "@tak-ps/etl": "^11.2.0",
-        "@turf/meta": "^7.0.0",
-        "@types/geojson": "^7946.0.10"
+        "@sinclair/typebox": "^0.34.52",
+        "@tak-ps/etl": "^11.3.1",
+        "@turf/meta": "^7.4.0",
+        "@types/geojson": "^7946.0.16"
     }
 }

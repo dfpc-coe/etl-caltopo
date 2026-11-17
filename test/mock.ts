@@ -19,6 +19,10 @@ export type Mock = {
     close: () => Promise<void>;
 };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
 function signed(method: string, pathname: string, params: URLSearchParams): boolean {
     const expected = createHmac('sha256', Buffer.from(CREDS.CredentialSecret, 'base64'))
         .update(`${method} ${pathname}\n${params.get('expires')}\n${params.get('json') ?? ''}`)
@@ -37,7 +41,7 @@ export async function mock(opts: {
 } = {}): Promise<Mock> {
     const state: Mock = { base: '', requests: [], close: async () => {} };
 
-    const server = http.createServer(async (req, res) => {
+    const handle = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
         const url = new URL(req.url || '/', 'http://localhost');
         const method = req.method || 'GET';
 
@@ -49,10 +53,11 @@ export async function mock(opts: {
             : url.searchParams;
 
         const raw = params.get('json');
-        const json = raw ? JSON.parse(raw) : null;
+        const parsed: unknown = raw ? JSON.parse(raw) : null;
+        const json = isObject(parsed) ? parsed : null;
         state.requests.push({ method, pathname: url.pathname, json });
 
-        const send = (code: number, body: unknown) => {
+        const send = (code: number, body: unknown): void => {
             res.writeHead(code, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(body));
         };
@@ -60,45 +65,49 @@ export async function mock(opts: {
         const create = url.pathname.match(/^\/api\/v1\/acct\/([^/]+)\/CollaborativeMap$/);
         if (method === 'POST' && create) {
             if (req.headers['content-type'] !== 'application/x-www-form-urlencoded') {
-                return send(400, { status: 'error', message: 'expected a form body' });
+                send(400, { status: 'error', message: 'expected a form body' });
             } else if (!signed('POST', url.pathname, params)) {
-                return send(401, { status: 'error', message: 'bad signature' });
+                send(401, { status: 'error', message: 'bad signature' });
             } else if (create[1] === 'READONLY') {
-                return send(403, { status: 'error', message: 'service account lacks UPDATE permission' });
-            } else if (!json || !json.properties || !json.properties.title) {
-                return send(400, { status: 'error', message: 'missing title' });
+                send(403, { status: 'error', message: 'service account lacks UPDATE permission' });
+            } else if (!isObject(json?.properties) || typeof json.properties.title !== 'string') {
+                send(400, { status: 'error', message: 'missing title' });
+            } else {
+                send(200, {
+                    status: 'ok',
+                    timestamp: Date.now(),
+                    result: {
+                        id: opts.mapId ?? 'NEWMAP',
+                        type: 'Feature',
+                        properties: { ...json.properties, accountId: create[1], class: 'CollaborativeMap' }
+                    }
+                });
             }
 
-            return send(200, {
-                status: 'ok',
-                timestamp: Date.now(),
-                result: {
-                    id: opts.mapId ?? 'NEWMAP',
-                    type: 'Feature',
-                    properties: { ...json.properties, accountId: create[1], class: 'CollaborativeMap' }
-                }
-            });
+            return;
         }
 
         if (url.pathname === '/api/v1/geodata/locations') {
             if (!signed('GET', url.pathname, params)) {
-                return send(401, { status: 'error', message: 'bad signature' });
-            } else if (!json || !json.bbox) {
+                send(401, { status: 'error', message: 'bad signature' });
+            } else if (!Array.isArray(json?.bbox)) {
                 // CalTopo answers a null bbox with an empty 200
                 res.writeHead(200, { 'Content-Length': '0' });
-                return res.end();
+                res.end();
+            } else {
+                send(200, {
+                    status: 'ok',
+                    timestamp: Date.now(),
+                    result: { features: opts.locations ?? [] }
+                });
             }
 
-            return send(200, {
-                status: 'ok',
-                timestamp: Date.now(),
-                result: { features: opts.locations ?? [] }
-            });
+            return;
         }
 
         const map = url.pathname.match(/^\/api\/v1\/map\/([^/]+)\/since\/-500$/);
         if (map) {
-            return send(200, {
+            send(200, {
                 status: 'ok',
                 timestamp: Date.now(),
                 result: {
@@ -106,14 +115,29 @@ export async function mock(opts: {
                     timestamp: Date.now()
                 }
             });
+            return;
         }
 
         send(404, { status: 'error' });
+    };
+
+    const server = http.createServer((req, res) => {
+        handle(req, res).catch((err: unknown) => {
+            console.error(err);
+            res.writeHead(500);
+            res.end();
+        });
     });
 
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) => {
+        server.listen(0, '127.0.0.1', resolve);
+    });
     state.base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    state.close = () => new Promise((resolve) => server.close(() => resolve()));
+    state.close = () => new Promise((resolve) => {
+        server.close(() => {
+            resolve();
+        });
+    });
 
     return state;
 }

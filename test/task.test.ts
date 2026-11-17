@@ -13,8 +13,29 @@ process.env.ETL_TOKEN = process.env.ETL_TOKEN || 'etl.test-token';
 
 const { default: Task } = await import('../task.js');
 
-async function run(base: string, environment: Record<string, unknown>) {
+type JSONSchema = {
+    properties: Record<string, JSONSchema>;
+    anyOf: JSONSchema[];
+    required: string[];
+    default: unknown;
+    enum: unknown[];
+    minimum: number;
+};
+
+async function instance(): Promise<InstanceType<typeof Task>> {
     const task = await Task.init();
+    assert.ok(task instanceof Task);
+    return task;
+}
+
+async function inputSchema(flow: DataFlowType): Promise<JSONSchema> {
+    const task = await instance();
+    const schema: unknown = await task.schema(SchemaType.Input, flow);
+    return schema as JSONSchema;
+}
+
+async function run(base: string, environment: Record<string, unknown>): Promise<Static<typeof Feature.InputFeatureCollection>> {
+    const task = await instance();
 
     const layer = {
         id: 1,
@@ -30,21 +51,20 @@ async function run(base: string, environment: Record<string, unknown>) {
 
     task.client = (verbose: boolean) => new CalTopo({ url: base, verbose });
 
-    let submitted: Static<typeof Feature.InputFeatureCollection> | null = null;
+    const submitted: Static<typeof Feature.InputFeatureCollection>[] = [];
     task.submit = async (fc: Static<typeof Feature.InputFeatureCollection>) => {
-        submitted = fc;
+        submitted.push(fc);
         return true;
     };
 
     await task.control();
 
-    assert.ok(submitted);
-    return submitted as Static<typeof Feature.InputFeatureCollection>;
+    assert.equal(submitted.length, 1);
+    return submitted[0];
 }
 
 test('Input schema - Team Account carries credentials & optional SinceDelta', async () => {
-    const task = await Task.init();
-    const schema = await task.schema(SchemaType.Input, DataFlowType.Incoming);
+    const schema = await inputSchema(DataFlowType.Incoming);
 
     const [map, team] = schema.properties.Source.anyOf;
     assert.deepEqual(Object.keys(map.properties), ['Mode', 'MapId']);
@@ -54,7 +74,7 @@ test('Input schema - Team Account carries credentials & optional SinceDelta', as
 });
 
 test('fromLocations - current position, stale filter, callsign & course', async () => {
-    const task = await Task.init();
+    const task = await instance();
     const now = Date.now();
 
     const features = task.fromLocations([
@@ -85,7 +105,7 @@ test('fromLocations - current position, stale filter, callsign & course', async 
 });
 
 test('fromMap - folders become paths, markers styled, geometry-less objects dropped', async () => {
-    const task = await Task.init();
+    const task = await instance();
 
     const features = task.fromMap([
         { id: 'folder-1', type: 'Feature', properties: { title: 'Team A', class: 'Folder', creator: 'x', updated: 1 } },
@@ -145,7 +165,7 @@ test('control - SinceDelta is sent as a ms epoch N seconds in the past', async (
 
         assert.equal(api.requests.length, 1);
         const since = api.requests[0].json?.since;
-        assert.equal(typeof since, 'number');
+        assert.ok(typeof since === 'number');
         assert.ok(since >= before - 90_000 && since <= after - 90_000, `since ${since} outside expected window`);
         assert.equal(submitted.features.length, 0);
     } finally {
@@ -183,7 +203,7 @@ type Current = { links?: unknown[], external_ids?: Record<string, string> };
  * - patch: false makes the PATCH fail
  */
 async function outgoing(base: string, environment: Record<string, unknown>, records: unknown[], opts: { current?: Current, patch?: boolean } = {}) {
-    const task = await Task.init();
+    const task = await instance();
 
     const layer = {
         id: 1,
@@ -200,7 +220,6 @@ async function outgoing(base: string, environment: Record<string, unknown>, reco
     task.client = (verbose: boolean) => new CalTopo({ url: base, verbose });
 
     const fetched: Fetched[] = [];
-    // @ts-expect-error loosely typed CloudTAK responses
     task.fetch = async (url: string, init: { method?: string, body?: string } = {}) => {
         const method = init.method ?? 'GET';
         fetched.push({ url, method, body: init.body ? JSON.parse(init.body) : undefined });
@@ -227,7 +246,7 @@ const EVENT = {
     location: 'Bear Lake Trailhead, CO',
     links: [],
     external_ids: {},
-    geometry: { type: 'Point', coordinates: [-105.6, 40.3, 2900] }
+    geometry: { type: 'Point' as const, coordinates: [-105.6, 40.3, 2900] }
 };
 
 const CREATE = { type: 'event', action: 'create', channels: [1], data: EVENT };
@@ -235,8 +254,7 @@ const CREATE = { type: 'event', action: 'create', channels: [1], data: EVENT };
 const OUTGOING = { AccountId: 'SVC1', TeamId: 'TEAM1', ...CREDS, MapMode: 'sar', MapSharing: 'SECRET', MapLayers: [{ layer: 'mbt' }], MarkerColor: 'FF0000', DEBUG: false };
 
 test('Outgoing schema - Team Account, credentials & map defaults', async () => {
-    const task = await Task.init();
-    const schema = await task.schema(SchemaType.Input, DataFlowType.Outgoing);
+    const schema = await inputSchema(DataFlowType.Outgoing);
 
     assert.deepEqual(Object.keys(schema.properties), ['AccountId', 'TeamId', 'CredentialId', 'CredentialSecret', 'MapMode', 'MapSharing', 'MapLayers', 'MarkerColor', 'DEBUG']);
     assert.deepEqual(schema.required, ['AccountId', 'TeamId', 'CredentialId', 'CredentialSecret', 'MapMode', 'MapSharing', 'MapLayers', 'MarkerColor', 'DEBUG']);
@@ -248,7 +266,7 @@ test('Outgoing schema - Team Account, credentials & map defaults', async () => {
 });
 
 test('mapFromEvent - callsign titles the map & marker, remarks and location fill the description', async () => {
-    const task = await Task.init();
+    const task = await instance();
 
     const map = task.mapFromEvent(EVENT, { ...OUTGOING, MapMode: 'cal', MapSharing: 'URL', MapLayers: [{ layer: 'mbh' }, { layer: 'imagery' }], MarkerColor: '#00FF00' } as never);
 
@@ -283,8 +301,9 @@ test('outgoing - event:create creates a Team Map, files its ID under caltopo & l
         assert.equal(api.requests.length, 1);
         assert.equal(api.requests[0].method, 'POST');
         assert.equal(api.requests[0].pathname, '/api/v1/acct/TEAM1/CollaborativeMap');
-        assert.equal((api.requests[0].json?.properties as Record<string, unknown>).title, 'Lost Hiker');
-        assert.equal((api.requests[0].json?.properties as Record<string, unknown>).sharing, 'SECRET');
+        const created = api.requests[0].json?.properties as Record<string, unknown>;
+        assert.equal(created.title, 'Lost Hiker');
+        assert.equal(created.sharing, 'SECRET');
 
         assert.deepEqual(res.fetched.map((f) => `${f.method} ${f.url}`), ['GET /api/core/event/evt-1', 'PATCH /api/core/event/evt-1']);
         assert.deepEqual(res.fetched[1].body, {

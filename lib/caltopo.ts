@@ -39,6 +39,17 @@ export const Location = Type.Object({
     'aircraft:heading': Type.Optional(Type.Number()),
 });
 
+// Coordinates are [lng, lat, alt, time]
+export const LocationPoint = Type.Object({
+    type: Type.Literal('Point'),
+    coordinates: Type.Array(Type.Number())
+});
+
+export const LocationTrack = Type.Object({
+    type: Type.Literal('LineString'),
+    coordinates: Type.Array(Type.Array(Type.Number()))
+});
+
 export const MapObject = Type.Object({
     title: Type.String(),
     description: Type.Optional(Type.String()),
@@ -67,14 +78,14 @@ export const MapObject = Type.Object({
 export const LocationFeature = Type.Object({
     id: Type.Union([Type.String(), Type.Integer()]),
     properties: Location,
-    geometry: Type.Optional(Type.Any()),
+    geometry: Type.Optional(Type.Unknown()),
 });
 
 export const MapFeature = Type.Object({
     id: Type.String(),
     type: Type.Literal('Feature'),
     properties: MapObject,
-    geometry: Type.Optional(Type.Any())
+    geometry: Type.Optional(Type.Unknown())
 });
 
 export const NewMapFeature = Type.Object({

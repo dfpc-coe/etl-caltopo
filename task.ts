@@ -1,10 +1,11 @@
 import { Type, TSchema, Static } from '@sinclair/typebox';
+import { Value } from '@sinclair/typebox/value';
 import type Lambda from 'aws-lambda';
 import { Feature } from '@tak-ps/node-cot';
 import type { Event } from '@tak-ps/etl';
 import ETL, { SchemaType, handler as internal, local, DataFlowType, InvocationType, OutgoingMessageType, OutgoingAction } from '@tak-ps/etl';
 import { coordEach } from '@turf/meta';
-import CalTopo, { Credentials, MapObject, MapFeature, LocationFeature, NewMap, MapMode, MapSharing, LOCATION_TTL } from './lib/caltopo.js';
+import CalTopo, { Credentials, MapObject, MapFeature, LocationFeature, LocationPoint, LocationTrack, NewMap, MapMode, MapSharing, LOCATION_TTL } from './lib/caltopo.js';
 
 const MapSource = Type.Object({
     Mode: Type.Literal('Map'),
@@ -107,8 +108,19 @@ export const CoreEvent = Type.Object({
     })
 });
 
-export type CoreEvent = Static<typeof CoreEvent>;
-export type OutgoingEnv = Static<typeof OutgoingEnv>;
+type InputFeature = Static<typeof Feature.InputFeature>;
+type CalTopoFeature = Static<typeof MapFeature>;
+type CalTopoGeometryFeature = CalTopoFeature & { geometry: InputFeature['geometry'] };
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function hasGeometry(feat: CalTopoFeature): feat is CalTopoGeometryFeature {
+    return isObject(feat.geometry)
+        && typeof feat.geometry.type === 'string'
+        && Array.isArray(feat.geometry.coordinates);
+}
 
 export default class Task extends ETL {
     static name = 'etl-caltopo';
@@ -120,16 +132,10 @@ export default class Task extends ETL {
         flow: DataFlowType = DataFlowType.Incoming
     ): Promise<TSchema> {
         if (flow === DataFlowType.Incoming) {
-            if (type === SchemaType.Input) {
-                return Env;
-            } else {
-                return MapObject;
-            }
-        } else if (type === SchemaType.Input) {
-            return OutgoingEnv;
-        } else {
-            return Type.Object({});
+            return type === SchemaType.Input ? Env : MapObject;
         }
+
+        return type === SchemaType.Input ? OutgoingEnv : Type.Object({});
     }
 
     /**
@@ -171,7 +177,7 @@ export default class Task extends ETL {
     }
 
     /** The current state of a CoreEvent - the Layer needs the event:read permission */
-    async coreEvent(id: string): Promise<CoreEvent> {
+    async coreEvent(id: string): Promise<Static<typeof CoreEvent>> {
         try {
             return this.type(CoreEvent, await this.fetch(`/api/core/event/${id}`));
         } catch (err) {
@@ -182,7 +188,7 @@ export default class Task extends ETL {
     /**
      * Map titled after the CoreEvent callsign with a single Marker at its location
      */
-    mapFromEvent(core: CoreEvent, env: OutgoingEnv): Static<typeof NewMap> {
+    mapFromEvent(core: Static<typeof CoreEvent>, env: Static<typeof OutgoingEnv>): Static<typeof NewMap> {
         const description = [
             core.remarks,
             core.location ? `Location: ${core.location}` : ''
@@ -223,12 +229,12 @@ export default class Task extends ETL {
      * PATCH replaces the links array, so the current links are re-sent with the Map appended.
      * A failure is logged rather than thrown - a retry would create a second Map
      */
-    async record(core: CoreEvent, id: string, url: string, sharing: MapSharing): Promise<void> {
+    async record(core: Static<typeof CoreEvent>, id: string, url: string, sharing: MapSharing): Promise<void> {
         const body: Record<string, unknown> = {
             external_id: { system: EXTERNAL_SYSTEM, value: id }
         };
 
-        const links = core.links || [];
+        const links = core.links ?? [];
         if (sharing !== MapSharing.PRIVATE && !links.some((l) => l.url === url)) {
             body.links = [...links, { name: 'CalTopo Map', url }];
         }
@@ -253,14 +259,16 @@ export default class Task extends ETL {
 
         const caltopo = this.client(env.DEBUG);
 
-        let features: Static<typeof Feature.InputFeature>[];
+        let features: InputFeature[];
         if (env.Source.Mode === 'Map') {
+            // oxlint-disable-next-line unicorn/no-array-callback-reference -- CalTopo.map is not Array#map
             features = this.fromMap(await caltopo.map(env.Source.MapId));
         } else {
             console.log(`ok - requesting shared locations for ${env.Source.AccountId}`);
 
-            const since = env.Source.SinceDelta
-                ? Date.now() - env.Source.SinceDelta * 1000
+            const delta = env.Source.SinceDelta ?? 0;
+            const since = delta !== 0
+                ? Date.now() - delta * 1000
                 : undefined;
 
             features = this.fromLocations(await caltopo.locations(env.Source, { since }));
@@ -281,16 +289,16 @@ export default class Task extends ETL {
     /**
      * Transform Shared Locations into CloudTAK features at each device's current position
      */
-    fromLocations(locations: Static<typeof LocationFeature>[]): Static<typeof Feature.InputFeature>[] {
+    fromLocations(locations: Static<typeof LocationFeature>[]): InputFeature[] {
         const now = Date.now();
-        const features: Static<typeof Feature.InputFeature>[] = [];
+        const features: InputFeature[] = [];
 
         for (const loc of locations) {
             let coord: number[] | undefined;
-            if (loc.geometry?.type === 'Point') {
+            if (Value.Check(LocationPoint, loc.geometry)) {
                 coord = loc.geometry.coordinates;
-            } else if (loc.geometry?.type === 'LineString' && loc.geometry.coordinates.length) {
-                coord = loc.geometry.coordinates[loc.geometry.coordinates.length - 1];
+            } else if (Value.Check(LocationTrack, loc.geometry)) {
+                coord = loc.geometry.coordinates.at(-1);
             }
 
             if (!coord) continue;
@@ -302,7 +310,7 @@ export default class Task extends ETL {
             const id = String(loc.id);
             const callsign = loc.properties.title || loc.properties.device || id;
 
-            const feat: Static<typeof Feature.InputFeature> = {
+            const feat: InputFeature = {
                 id: `caltopo-loc-${id}`,
                 type: 'Feature',
                 properties: {
@@ -333,43 +341,43 @@ export default class Task extends ETL {
     /**
      * Transform the objects of a single CalTopo map into CloudTAK features
      */
-    fromMap(objects: Static<typeof MapFeature>[]): Static<typeof Feature.InputFeature>[] {
+    fromMap(objects: CalTopoFeature[]): InputFeature[] {
         const folders: Map<string, Static<typeof MapObject>> = new Map();
 
         return objects
-            .filter((feat) => {
+            .filter((feat): feat is CalTopoGeometryFeature => {
                 if (feat.properties.class === 'Folder') {
                     folders.set(feat.id, feat.properties);
                     return false;
-                } else {
-                    // SARTopo will send "features" like "Operational Periods" which do not have geometry
-                    return !!feat.geometry;
                 }
+
+                // SARTopo will send "features" like "Operational Periods" which do not have geometry
+                return hasGeometry(feat);
             })
             .map((calFeat) => {
-                const feat: Static<typeof Feature.InputFeature> = {
+                const metadata = calFeat.properties;
+                const feat: InputFeature = {
                     id: calFeat.id,
                     type: 'Feature',
-                    properties: {
-                        metadata: calFeat.properties
-                    },
+                    properties: { metadata },
                     geometry: calFeat.geometry
                 };
-                const metadata = feat.properties.metadata ?? {};
 
-                feat.properties.callsign = String(calFeat.properties.title);
-                feat.properties.remarks = calFeat.properties.description ? String(calFeat.properties.description) : '';
+                feat.properties.callsign = metadata.title;
+                feat.properties.remarks = metadata.description || '';
 
                 if (metadata.fill !== undefined) feat.properties.fill = String(metadata.fill);
                 if (metadata['fill-opacity'] !== undefined) feat.properties['fill-opacity'] = Number(metadata['fill-opacity']);
                 if (metadata.stroke !== undefined) feat.properties.stroke = String(metadata.stroke);
                 if (metadata['stroke-opacity'] !== undefined) feat.properties['stroke-opacity'] = Number(metadata['stroke-opacity']);
                 if (metadata['stroke-width'] !== undefined) feat.properties['stroke-width'] = Number(metadata['stroke-width']);
-                if (metadata.ico !== undefined) feat.properties.icon = String(metadata.icon);
+                if ('ico' in metadata && metadata.ico !== undefined && 'icon' in metadata && typeof metadata.icon === 'string') {
+                    feat.properties.icon = metadata.icon;
+                }
 
                 // CalTopo returns points with 4+ coords
                 coordEach(feat.geometry, (coord) => {
-                    return coord.splice(3)
+                    coord.splice(3);
                 });
 
                 feat.properties.archived = true;
@@ -387,9 +395,9 @@ export default class Task extends ETL {
             })
             // After all Features/Folders have been seperated, apply folder => path transform
             .map((feat) => {
-                const metadata = feat.properties.metadata;
-                if (metadata?.folderId && typeof metadata.folderId === 'string') {
-                    const folder = folders.get(metadata.folderId);
+                const folderId = feat.properties.metadata?.folderId;
+                if (typeof folderId === 'string' && folderId) {
+                    const folder = folders.get(folderId);
                     if (folder) {
                         feat.path = `/${folder.title}`;
                     }
@@ -401,6 +409,6 @@ export default class Task extends ETL {
 }
 
 await local(await Task.init(import.meta.url), import.meta.url);
-export async function handler(event: Event = {}) {
-    return await internal(await Task.init(import.meta.url), event);
+export async function handler(event: Event = {}): ReturnType<typeof internal> {
+    return internal(await Task.init(import.meta.url), event);
 }
