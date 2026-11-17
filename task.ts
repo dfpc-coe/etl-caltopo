@@ -371,7 +371,7 @@ export default class Task extends ETL {
                 if (metadata.stroke !== undefined) feat.properties.stroke = String(metadata.stroke);
                 if (metadata['stroke-opacity'] !== undefined) feat.properties['stroke-opacity'] = Number(metadata['stroke-opacity']);
                 if (metadata['stroke-width'] !== undefined) feat.properties['stroke-width'] = Number(metadata['stroke-width']);
-                if ('ico' in metadata && metadata.ico !== undefined && 'icon' in metadata && typeof metadata.icon === 'string') {
+                if ('icon' in metadata && typeof metadata.icon === 'string') {
                     feat.properties.icon = metadata.icon;
                 }
 

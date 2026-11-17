@@ -12,6 +12,10 @@
 
 ### Pending Release
 
+### v5.20.1
+
+- :bug: Fix icon property parsing
+
 ### v5.20.0
 
 - :arrow_up: Migrate to TS7 for blazing build times
